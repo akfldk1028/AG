@@ -3,9 +3,6 @@ venv/
 .venv/
 env/
 
-# AutoGen source (수정된 버전 포함)
-# autogen_source/
-
 # Python cache
 __pycache__/
 *.py[cod]
@@ -37,3 +34,29 @@ build/
 
 # Test outputs
 nul
+
+# AutoGen Source - 대부분 제외하고 필수 파일만 포함
+autogen_source/dotnet/
+autogen_source/docs/
+autogen_source/protos/
+autogen_source/.azure/
+autogen_source/.devcontainer/
+autogen_source/.github/
+autogen_source/python/docs/
+autogen_source/python/samples/
+autogen_source/python/packages/agbench/
+autogen_source/python/packages/autogen-magentic-one/
+autogen_source/python/packages/autogen-test-utils/
+autogen_source/python/packages/magentic-one-cli/
+autogen_source/python/packages/pyautogen/
+autogen_source/python/packages/component-schema-gen/
+
+# AutoGen Studio frontend build artifacts
+autogen_source/python/packages/autogen-studio/frontend/node_modules/
+autogen_source/python/packages/autogen-studio/frontend/.cache/
+autogen_source/python/packages/autogen-studio/frontend/public/
+
+# 테스트 스크립트 (개발용)
+test_*.py
+create_*.py
+update_*.py
