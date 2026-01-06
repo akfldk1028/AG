@@ -48,7 +48,9 @@ autogen_a2a_kit/              ← 이 폴더가 Git 저장소
 ├── AI_HANDOFF.md             # 이 문서
 └── a2a_demo/                 # A2A 서버 예제
     ├── remote_agent/
-    │   └── agent.py          # 소수 판별 A2A 서버
+    │   └── agent.py          # 소수 판별 A2A 서버 (port 8002)
+    ├── calculator_agent/
+    │   └── agent.py          # 계산기 A2A 서버 (port 8003)
     ├── root_agent/
     │   └── agent.py          # 코디네이터 에이전트
     └── start_server.bat      # 서버 시작 스크립트
@@ -143,7 +145,9 @@ editable mode로 설치되어 있으므로:
 
 | Port | Service |
 |------|---------|
-| 8001 | A2A Server (Google ADK) |
+| 8002 | prime_checker_agent (A2A 소수 판별) |
+| 8003 | calculator_agent (A2A 계산기) |
+| 8081 | AutoGen Studio UI |
 
 ## 실행 명령어
 
@@ -158,11 +162,59 @@ python example.py
 python a2a_demo/root_agent/agent.py --interactive
 ```
 
+## AutoGen Studio A2A 통합
+
+### A2AAgent 클래스
+AutoGen Studio에서 A2A 프로토콜 에이전트 사용:
+
+```python
+# Provider: autogenstudio.a2a.A2AAgent
+# 경로: autogen_source/python/packages/autogen-studio/autogenstudio/a2a/
+
+# 팀 config 내 A2A 에이전트 정의
+{
+    "provider": "autogenstudio.a2a.A2AAgent",
+    "component_type": "agent",
+    "version": 1,
+    "label": "Calculator Agent",
+    "config": {
+        "name": "calculator_agent",
+        "a2a_server_url": "http://localhost:8003",
+        "description": "Math calculator specialist",
+        "timeout": 60,
+        "skills": []
+    }
+}
+```
+
+### SelectorGroupChat 라우팅
+```python
+# selector_prompt로 질문 유형에 따라 에이전트 선택
+selector_prompt = """Select the appropriate agent:
+- prime_checker_agent: For prime number checking, factorization
+- calculator_agent: For calculations, fibonacci, factorial
+- assistant_agent: For general questions
+
+Conversation: {history}
+Roles: {roles}
+Return ONLY the agent name."""
+```
+
+### 팀 업데이트 방법
+PUT API는 405 반환 → SQLite 직접 수정 필요:
+```python
+import sqlite3
+db_path = "~/.autogenstudio/autogen04202.db"
+conn = sqlite3.connect(db_path)
+# component JSON 파싱 후 participants 수정
+```
+
 ## 알려진 이슈
 
 1. **Windows 한글 깨짐**: `chcp 65001` 실행
 2. **A2A 연결 실패**: 서버 실행 상태 확인 필요
 3. **API 키 오류**: 환경변수 확인
+4. **팀 PUT API 405**: SQLite 직접 수정으로 우회
 
 ## 다음 AI에게
 
@@ -170,3 +222,8 @@ python a2a_demo/root_agent/agent.py --interactive
 2. **환경변수**: `OPENAI_API_KEY` 설정
 3. **테스트**: `python example.py`
 4. **AutoGen 수정**: `autogen_source/python/packages/` 폴더
+5. **AutoGen Studio**: `autogenstudio ui --port 8081`로 실행
+6. **A2A 서버 시작**:
+   - `python a2a_demo/remote_agent/agent.py` (port 8002)
+   - `python a2a_demo/calculator_agent/agent.py` (port 8003)
+7. **듀얼 에이전트 테스트**: AutoGen Studio UI에서 "Dual A2A Team" 선택
