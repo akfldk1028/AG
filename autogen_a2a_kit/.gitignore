@@ -1,0 +1,39 @@
+# Virtual environments (각자 생성)
+venv/
+.venv/
+env/
+
+# AutoGen source (수정된 버전 포함)
+# autogen_source/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Environment files with secrets
+.env
+.env.local
+
+# Test outputs
+nul

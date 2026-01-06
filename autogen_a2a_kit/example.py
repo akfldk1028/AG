@@ -6,9 +6,20 @@
 import os
 import asyncio
 
-# API Key 설정 (환경변수 없으면 여기에 입력)
+# .env 파일 자동 로드
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv 없으면 환경변수 직접 사용
+
+# API Key 확인
 if not os.environ.get("OPENAI_API_KEY"):
-    os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # ← 실제 키로 변경
+    print("[ERROR] OPENAI_API_KEY가 설정되지 않았습니다.")
+    print("  1. .env.example을 .env로 복사")
+    print("  2. .env 파일에 API 키 입력")
+    print("  또는: set OPENAI_API_KEY=sk-...")
+    exit(1)
 
 # 이 패키지에서 임포트 (패키지 내/외부 모두 지원)
 try:

@@ -7,6 +7,13 @@ import os
 import asyncio
 from typing import List, Callable, Optional
 
+# .env 파일 자동 로드
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # 지연 임포트 (설치 안되어있으면 에러 메시지)
 def _check_imports():
     try:
