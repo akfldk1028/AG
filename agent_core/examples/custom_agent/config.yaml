@@ -1,0 +1,10 @@
+# 커스텀 에이전트 설정
+name: my_custom_agent
+model: openai/gpt-4o-mini
+description: 나만의 커스텀 에이전트입니다.
+instruction: |
+  당신은 도움이 되는 어시스턴트입니다.
+  사용자의 질문에 친절하게 답변해주세요.
+
+port: 8002
+host: 127.0.0.1
