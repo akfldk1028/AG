@@ -65,15 +65,17 @@ build/
 # Test outputs
 nul
 .playwright-mcp
-a2a_demo
-requirements.txt
-AI_HANDOFF.md
-check_db.py
-check_install.py
-install_studio.bat
-main.py
-PROJECT_SETUP.md
-README.md
-.claude-flow
-.swarm
-.autogenstudio
+
+# Root-level files only (don't affect autogen_source subdirectories)
+/a2a_demo
+/requirements.txt
+/AI_HANDOFF.md
+/check_db.py
+/check_install.py
+/install_studio.bat
+/main.py
+/PROJECT_SETUP.md
+/README.md
+/.claude-flow
+/.swarm
+/.autogenstudio
