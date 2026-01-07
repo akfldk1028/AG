@@ -47,7 +47,7 @@ pip install -e autogen_source/python/packages/autogen-studio
 
 ### Step 5: Install A2A dependencies
 ```bash
-pip install google-adk httpx aiohttp
+pip install google-adk httpx python-dotenv
 ```
 
 ### Step 6: Set API Key
@@ -612,7 +612,7 @@ pip install -e autogen_source/python/packages/autogen-core
 pip install -e autogen_source/python/packages/autogen-agentchat
 pip install -e "autogen_source/python/packages/autogen-ext[openai]"
 pip install -e autogen_source/python/packages/autogen-studio
-pip install google-adk httpx aiohttp
+pip install google-adk httpx python-dotenv
 
 # 3. 환경 변수
 set OPENAI_API_KEY=sk-your-key  # Windows
