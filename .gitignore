@@ -47,6 +47,11 @@ dist/
 build/
 *.egg-info/
 
+# Frontend build artifacts (소스는 frontend/, 빌드 결과는 커밋)
+autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/node_modules/
+autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/.cache/
+autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/public/
+
 # Environment files with secrets
 .env
 .env.local

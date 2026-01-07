@@ -509,6 +509,56 @@ AutoGen Studio UI에서 팀 생성 시 A2AAgent로 추가:
 }
 ```
 
+## 프론트엔드 개발 (UI 수정 시)
+
+프론트엔드 UI를 수정하고 싶다면 아래 절차를 따르세요.
+
+### 1. 프론트엔드 소스 위치
+
+```
+autogen_source/python/packages/autogen-studio/frontend/
+├── src/
+│   ├── components/   # React 컴포넌트
+│   ├── pages/        # 페이지 라우트
+│   └── ...
+├── package.json
+└── gatsby-config.ts
+```
+
+### 2. 개발 모드 실행
+
+```bash
+cd autogen_source/python/packages/autogen-studio/frontend
+npm install --legacy-peer-deps
+npm run develop
+```
+
+브라우저에서 `http://localhost:8000` 접속 (Gatsby 개발 서버)
+
+### 3. 수정 후 빌드 및 적용
+
+**Windows:**
+```cmd
+.\node_modules\.bin\gatsby.cmd clean && .\node_modules\.bin\gatsby.cmd build --prefix-paths
+xcopy /E /I /Y public ..\autogenstudio\web\ui
+```
+
+**Linux/Mac:**
+```bash
+npm run build
+cp -r public/* ../autogenstudio/web/ui/
+```
+
+### 4. AutoGen Studio 재시작
+
+```bash
+autogenstudio ui --port 8081
+```
+
+> **Note:** `autogenstudio/web/ui/` 폴더는 이미 빌드된 파일이 포함되어 있습니다. 프론트엔드를 수정하지 않는 사용자는 빌드 없이 바로 사용 가능합니다.
+
+---
+
 ## 문제 해결
 
 ### Windows 한글 깨짐
