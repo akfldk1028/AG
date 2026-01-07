@@ -638,11 +638,11 @@ venv\Scripts\activate
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Multi-Agent Framework | Microsoft AutoGen | 0.4.2+ |
+| Multi-Agent Framework | Microsoft AutoGen | 0.7.x |
 | A2A Server | Google ADK | 0.2.0+ |
 | LLM | OpenAI GPT-4o-mini | - |
 | Language | Python | 3.10+ |
-| Web UI | AutoGen Studio | 0.4.2+ |
+| Web UI | AutoGen Studio | 0.4.x |
 
 ## 전체 실행 순서 요약
 
