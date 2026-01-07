@@ -23,8 +23,8 @@ if not os.environ.get("OPENAI_API_KEY"):
 
 # 이 패키지에서 임포트 (패키지 내/외부 모두 지원)
 try:
-    from autogen_a2a_kit import create_a2a_tool, call_a2a, check_server
-    from autogen_a2a_kit import quick_agent, run_task, multi_agent_task
+    from AG_kit import create_a2a_tool, call_a2a, check_server
+    from AG_kit import quick_agent, run_task, multi_agent_task
 except ImportError:
     from a2a_client import create_a2a_tool, call_a2a, check_server
     from agents import quick_agent, run_task, multi_agent_task
