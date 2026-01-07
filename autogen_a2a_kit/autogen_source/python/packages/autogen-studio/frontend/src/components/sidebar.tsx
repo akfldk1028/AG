@@ -128,26 +128,8 @@ const Sidebar = ({ link, meta, isMobile }: SidebarProps) => {
         showFull ? "w-72 px-6" : "w-16 px-2"
       )}
     >
-      {/* App Logo/Title */}
-      <div
-        className={`flex h-16 items-center ${showFull ? "gap-x-3" : "ml-2"}`}
-      >
-        <Link
-          to="/"
-          onClick={() => setNavigationHeader("/")}
-          className="w-8 text-right text-accent hover:opacity-80 transition-opacity"
-        >
-          <Icon icon="app" size={8} />
-        </Link>
-        {showFull && (
-          <div className="flex flex-col" style={{ minWidth: "200px" }}>
-            <span className="text-base font-semibold text-primary">
-              {meta?.title}
-            </span>
-            <span className="text-xs text-secondary">{meta?.description}</span>
-          </div>
-        )}
-      </div>
+      {/* App Logo/Title - Hidden */}
+      <div className="h-4"></div>
 
       {/* Navigation */}
       <nav className="flex flex-1 flex-col">
