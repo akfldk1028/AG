@@ -13,12 +13,8 @@ if ! command -v python3 &> /dev/null; then
 fi
 echo "[OK] Python found"
 
-# Check Git
-if ! command -v git &> /dev/null; then
-    echo "[ERROR] Git not found. Install Git first."
-    exit 1
-fi
-echo "[OK] Git found"
+# Git is no longer required (autogen_source included in kit)
+echo "[OK] Git not required (autogen_source pre-included)"
 
 # Create venv
 echo ""
@@ -33,18 +29,16 @@ fi
 # Activate venv
 source venv/bin/activate
 
-# Clone AutoGen source
+# Check autogen_source (already included in kit with A2A support)
 echo ""
-echo "[2/5] Cloning AutoGen source (for development)..."
+echo "[2/5] Checking AutoGen source (with A2A modifications)..."
 if [ ! -d "autogen_source" ]; then
-    git clone https://github.com/microsoft/autogen.git autogen_source
-    echo "       Cloned: autogen_source/"
+    echo "[ERROR] autogen_source folder not found!"
+    echo "        This folder should be included in the kit."
+    echo "        Please re-download the complete kit."
+    exit 1
 else
-    echo "       Already exists: autogen_source/"
-    echo "       Updating..."
-    cd autogen_source
-    git pull
-    cd ..
+    echo "       Found: autogen_source/ (includes A2A support)"
 fi
 
 # Install AutoGen in editable mode

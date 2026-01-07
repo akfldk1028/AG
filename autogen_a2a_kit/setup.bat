@@ -17,14 +17,8 @@ if errorlevel 1 (
 )
 echo [OK] Python found
 
-REM Check Git
-git --version >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Git not found. Install Git first.
-    pause
-    exit /b 1
-)
-echo [OK] Git found
+REM Git is no longer required (autogen_source included in kit)
+echo [OK] Git not required (autogen_source pre-included)
 
 REM Create venv
 echo.
@@ -39,18 +33,17 @@ if not exist "venv" (
 REM Activate venv
 call venv\Scripts\activate.bat
 
-REM Clone AutoGen source
+REM Check autogen_source (already included in kit with A2A support)
 echo.
-echo [2/5] Cloning AutoGen source (for development)...
+echo [2/5] Checking AutoGen source (with A2A modifications)...
 if not exist "autogen_source" (
-    git clone https://github.com/microsoft/autogen.git autogen_source
-    echo       Cloned: autogen_source/
+    echo [ERROR] autogen_source folder not found!
+    echo         This folder should be included in the kit.
+    echo         Please re-download the complete kit.
+    pause
+    exit /b 1
 ) else (
-    echo       Already exists: autogen_source/
-    echo       Updating...
-    cd autogen_source
-    git pull
-    cd ..
+    echo       Found: autogen_source/ (includes A2A support)
 )
 
 REM Install AutoGen in editable mode
