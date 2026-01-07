@@ -2,6 +2,89 @@
 
 Microsoft AutoGen과 Google A2A(Agent-to-Agent) 프로토콜을 연동한 멀티 에이전트 개발 환경.
 
+---
+
+## 🚀 Quick Start (AI/CLI 실행용)
+
+> **AI Agent나 CLI에서 순서대로 실행하세요. setup.bat 없이 수동 설치합니다.**
+
+### Prerequisites
+- Python 3.10+
+- OpenAI API Key
+
+### Step 1: Clone Repository
+```bash
+git clone https://github.com/akfldk1028/AG.git
+cd AG/autogen_a2a_kit
+```
+
+### Step 2: Create Virtual Environment
+
+**Windows:**
+```cmd
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Linux/Mac:**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### Step 3: Upgrade pip
+```bash
+pip install --upgrade pip
+```
+
+### Step 4: Install AutoGen packages (editable mode)
+```bash
+pip install -e autogen_source/python/packages/autogen-core
+pip install -e autogen_source/python/packages/autogen-agentchat
+pip install -e "autogen_source/python/packages/autogen-ext[openai]"
+pip install -e autogen_source/python/packages/autogen-studio
+```
+
+### Step 5: Install A2A dependencies
+```bash
+pip install google-adk httpx aiohttp
+```
+
+### Step 6: Set API Key
+
+**Windows:**
+```cmd
+set OPENAI_API_KEY=sk-your-api-key-here
+```
+
+**Linux/Mac:**
+```bash
+export OPENAI_API_KEY=sk-your-api-key-here
+```
+
+### Step 7: Verify Installation
+```bash
+python -c "from autogen_agentchat.agents import AssistantAgent; print('OK: autogen-agentchat')"
+python -c "from autogenstudio.a2a import A2AAgent; print('OK: A2AAgent')"
+```
+
+### Step 8: Run A2A Demo Server (Terminal 1)
+```bash
+python a2a_demo/remote_agent/agent.py
+```
+
+### Step 9: Run AutoGen Studio (Terminal 2)
+```bash
+autogenstudio ui --port 8081
+```
+
+### Step 10: Open Browser
+```
+http://localhost:8081
+```
+
+---
+
 ## 주요 기능
 
 - AutoGen 소스를 editable mode로 설치하여 수정 즉시 반영
@@ -12,33 +95,28 @@ Microsoft AutoGen과 Google A2A(Agent-to-Agent) 프로토콜을 연동한 멀티
 ## 요구사항
 
 - Python 3.10 이상
-- Git
 - OpenAI API Key
 
 ## 설치
 
-### Windows
+> **권장: 위의 [Quick Start](#-quick-start-aicli-실행용) 섹션을 따라하세요.**
 
-```cmd
-git clone https://github.com/your-repo/autogen_a2a_kit.git
-cd autogen_a2a_kit
-setup.bat
-```
-
-### Linux / Mac
+### 자동 설치 (setup 스크립트)
 
 ```bash
-git clone https://github.com/your-repo/autogen_a2a_kit.git
-cd autogen_a2a_kit
-chmod +x setup.sh
-./setup.sh
+# Windows
+setup.bat
+
+# Linux/Mac
+chmod +x setup.sh && ./setup.sh
 ```
 
 setup 스크립트는 다음을 수행합니다:
 1. Python 가상환경 생성 (venv/)
-2. AutoGen 소스 클론 (autogen_source/)
-3. autogen-core, autogen-agentchat, autogen-ext, autogen-studio를 editable mode로 설치
-4. A2A 관련 의존성 설치
+2. autogen-core, autogen-agentchat, autogen-ext, autogen-studio를 editable mode로 설치
+3. A2A 관련 의존성 설치
+
+> **Note**: `autogen_source/` 폴더는 이미 A2A 수정본이 포함되어 있습니다. Microsoft repo에서 별도로 클론하지 않습니다.
 
 ## 환경 변수 설정
 
@@ -518,28 +596,38 @@ venv\Scripts\activate
 
 ## 전체 실행 순서 요약
 
+> **상세한 단계별 설치는 맨 위 [Quick Start](#-quick-start-aicli-실행용) 참조**
+
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/your-repo/autogen_a2a_kit.git
-cd autogen_a2a_kit
+git clone https://github.com/akfldk1028/AG.git
+cd AG/autogen_a2a_kit
 
-# 2. 설치
-setup.bat  # Windows
-# 또는
-./setup.sh  # Linux/Mac
+# 2. 가상환경 + 설치
+python -m venv venv
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Linux/Mac
+pip install --upgrade pip
+pip install -e autogen_source/python/packages/autogen-core
+pip install -e autogen_source/python/packages/autogen-agentchat
+pip install -e "autogen_source/python/packages/autogen-ext[openai]"
+pip install -e autogen_source/python/packages/autogen-studio
+pip install google-adk httpx aiohttp
 
 # 3. 환경 변수
 set OPENAI_API_KEY=sk-your-key  # Windows
-export OPENAI_API_KEY=sk-your-key  # Linux/Mac
+# export OPENAI_API_KEY=sk-your-key  # Linux/Mac
 
-# 4. A2A 서버 실행 (터미널 2개)
-venv\Scripts\activate && python a2a_demo/remote_agent/agent.py
-venv\Scripts\activate && python a2a_demo/calculator_agent/agent.py
+# 4. 설치 확인
+python -c "from autogenstudio.a2a import A2AAgent; print('OK')"
 
-# 5. AutoGen Studio 실행 (터미널 3)
-venv\Scripts\activate && autogenstudio ui --port 8081
+# 5. A2A 서버 실행 (터미널 1)
+python a2a_demo/remote_agent/agent.py
 
-# 6. 브라우저 접속
+# 6. AutoGen Studio 실행 (터미널 2)
+autogenstudio ui --port 8081
+
+# 7. 브라우저 접속
 http://localhost:8081
 ```
 
