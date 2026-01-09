@@ -112,7 +112,16 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
                                 if "text" in part:
                                     return part["text"]
 
-                    # 형식 2: history (대화 기록 형식)
+                    # 형식 2: status.message (Google ADK 응답 형식)
+                    # 에이전트 응답은 history가 아닌 status.message에 있음!
+                    if "status" in res and "message" in res["status"]:
+                        status_msg = res["status"]["message"]
+                        for part in status_msg.get("parts", []):
+                            text = part.get("text")
+                            if text:
+                                return text
+
+                    # 형식 3: history (대화 기록 형식 - fallback)
                     if "history" in res:
                         # 마지막 assistant/agent 메시지에서 텍스트 추출 (user 제외)
                         for msg in reversed(res["history"]):
