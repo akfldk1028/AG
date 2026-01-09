@@ -899,7 +899,7 @@ AutoGen Studio UI에서 팀 생성 시 A2AAgent로 추가:
 
 ## 프론트엔드 개발 (UI 수정 시)
 
-프론트엔드 UI를 수정하고 싶다면 아래 절차를 따르세요.
+> **중요**: 프론트엔드는 **Gatsby**로 빌드됩니다. Windows에서는 기본 `npm run build`가 작동하지 않으므로 아래 Windows 전용 명령어를 사용하세요.
 
 ### 1. 프론트엔드 소스 위치
 
@@ -910,38 +910,82 @@ autogen_source/python/packages/autogen-studio/frontend/
 │   ├── pages/        # 페이지 라우트
 │   └── ...
 ├── package.json
-└── gatsby-config.ts
+└── gatsby-config.ts  # Gatsby 설정
 ```
 
-### 2. 개발 모드 실행
+### 2. 의존성 설치 (최초 1회)
 
 ```bash
 cd autogen_source/python/packages/autogen-studio/frontend
 npm install --legacy-peer-deps
+```
+
+### 3. 개발 모드 실행 (실시간 미리보기)
+
+```bash
 npm run develop
 ```
 
 브라우저에서 `http://localhost:8000` 접속 (Gatsby 개발 서버)
 
-### 3. 수정 후 빌드 및 적용
+### 4. 프로덕션 빌드 (★ Windows 전용 명령어)
 
-**Windows:**
-```cmd
-.\node_modules\.bin\gatsby.cmd clean && .\node_modules\.bin\gatsby.cmd build --prefix-paths
-xcopy /E /I /Y public ..\autogenstudio\web\ui
+> **WARNING**: `npm run build`는 Linux 명령어(`rm -rf`, `rsync`)를 사용하므로 Windows에서 실패합니다!
+
+**Windows PowerShell (권장):**
+```powershell
+cd autogen_source/python/packages/autogen-studio/frontend
+
+# Step 1: Gatsby 캐시 정리
+npx gatsby clean
+
+# Step 2: Gatsby 빌드
+npx gatsby build --prefix-paths
+
+# Step 3: 빌드 결과를 web/ui로 복사
+Remove-Item -Recurse -Force ..\autogenstudio\web\ui\* -ErrorAction SilentlyContinue
+Copy-Item -Recurse -Force public\* ..\autogenstudio\web\ui\
+```
+
+**Windows 한 줄 명령어 (복붙용):**
+```powershell
+cd "D:\Data\22_AG\autogen_a2a_kit\autogen_source\python\packages\autogen-studio\frontend"; npx gatsby clean; npx gatsby build --prefix-paths; Remove-Item -Recurse -Force ..\autogenstudio\web\ui\* -ErrorAction SilentlyContinue; Copy-Item -Recurse -Force public\* ..\autogenstudio\web\ui\
 ```
 
 **Linux/Mac:**
 ```bash
 npm run build
-cp -r public/* ../autogenstudio/web/ui/
+# 위 명령어가 자동으로 public/ → web/ui/ 복사
 ```
 
-### 4. AutoGen Studio 재시작
+### 5. 빌드 후 서버 재시작
 
 ```bash
+# 기존 서버 종료 후
 autogenstudio ui --port 8081
+
+# 또는 start_server.py 사용
+python start_server.py
 ```
+
+### 6. 빌드 결과 Git 커밋
+
+UI 빌드 파일은 **반드시 커밋**해야 합니다 (Windows에서 빌드 불가한 환경 대응):
+
+```bash
+git add autogen_source/python/packages/autogen-studio/autogenstudio/web/ui/
+git commit -m "build: Update frontend UI"
+git push
+```
+
+### 흔한 빌드 에러
+
+| 에러 | 원인 | 해결 |
+|------|------|------|
+| `rm: command not found` | Linux 명령어 | Windows용 명령어 사용 (위 참조) |
+| `rsync: command not found` | Linux 명령어 | `Copy-Item` 사용 |
+| `PREFIX_PATH_VALUE is not recognized` | 환경변수 문법 | PowerShell용 명령어 사용 |
+| `gatsby: command not found` | PATH 문제 | `npx gatsby` 사용 |
 
 > **Note:** `autogenstudio/web/ui/` 폴더는 이미 빌드된 파일이 포함되어 있습니다. 프론트엔드를 수정하지 않는 사용자는 빌드 없이 바로 사용 가능합니다.
 
