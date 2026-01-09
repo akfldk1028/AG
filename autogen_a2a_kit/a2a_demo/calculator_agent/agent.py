@@ -18,6 +18,7 @@ except ImportError:
 
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
+from google.adk.models.lite_llm import LiteLlm
 
 # 환경 변수에서 API 키 확인
 if not os.environ.get("OPENAI_API_KEY"):
@@ -97,7 +98,7 @@ def factorial(n: int) -> dict:
 
 # 계산기 에이전트 생성
 calculator_agent = Agent(
-    model="openai/gpt-4o-mini",
+    model=LiteLlm(model="openai/gpt-4o-mini"),
     name="calculator_agent",
     description="기본 수학 연산, 피보나치 수열, 팩토리얼 계산을 수행하는 수학 계산 에이전트입니다.",
     instruction="""당신은 수학 계산 전문 에이전트입니다.

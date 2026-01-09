@@ -32,6 +32,13 @@ interface CoHubPatternJSON {
   autogen_implementation: {
     provider: string;
     label?: string;
+    requiredConfig?: {
+      allow_repeated_speaker?: boolean;
+      model_client?: {
+        provider: string;
+        config: Record<string, unknown>;
+      };
+    };
     team_config?: {
       participants: Array<{
         provider: string;
@@ -189,19 +196,29 @@ function convertToPatternDefinition(json: CoHubPatternJSON): PatternDefinition {
     autogenProvider: providerShort,
     autogenProviderFull: providerFull,
 
-    requiredConfig: getRequiredConfig(providerShort),
+    requiredConfig: getRequiredConfig(providerShort, json),
     prompts: getPrompts(json),
   };
 }
 
-function getRequiredConfig(provider: string): PatternDefinition["requiredConfig"] {
+function getRequiredConfig(provider: string, json: CoHubPatternJSON): PatternDefinition["requiredConfig"] {
   if (provider === "SelectorGroupChat" || provider === "MagenticOneGroupChat") {
-    return {
+    // Read from JSON's requiredConfig if available
+    const jsonRequiredConfig = json.autogen_implementation?.requiredConfig;
+
+    // Defaults
+    const defaults = {
       model_client: {
         provider: "autogen_ext.models.openai.OpenAIChatCompletionClient",
         config: { model: "gpt-4o-mini" },
       },
-      allow_repeated_speaker: provider === "SelectorGroupChat",
+      allow_repeated_speaker: true, // Default true, but can be overridden by JSON
+    };
+
+    // Merge JSON config over defaults (JSON values take precedence)
+    return {
+      ...defaults,
+      ...jsonRequiredConfig,
     };
   }
   return undefined;

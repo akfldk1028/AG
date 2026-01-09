@@ -50,25 +50,25 @@ const generateDynamicSelectorPrompt = (
 
   // Pattern-specific prompt templates
   const promptTemplates: Record<string, string> = {
-    debate: `You are coordinating a multi-agent debate.
+    debate: `You are coordinating a multi-agent debate. You MUST rotate between different agents.
 
 Available Agents:
 ${agentList}
 
-Debate Rules:
-1. Each agent takes turns presenting their unique perspective based on their expertise
-2. Agents should respond to and challenge each other's arguments
-3. Encourage cross-disciplinary insights (e.g., historical context meets philosophical analysis)
-4. Continue until a conclusion is reached or consensus emerges
+CRITICAL RULES:
+1. **NEVER select the same agent twice in a row** - you MUST choose a DIFFERENT agent than the last speaker
+2. Each agent must take turns presenting their unique perspective
+3. Ensure ALL agents participate by rotating through them fairly
+4. If Agent A just spoke, select Agent B or Agent C next - NEVER Agent A again
 
-Based on the conversation history, select the next speaker.
+Based on the conversation history, select the NEXT speaker (must be different from the last one).
 Consider:
-- Who hasn't spoken recently
-- Whose expertise is most relevant to the current topic
-- Who could provide a contrasting or complementary perspective
+- Who just spoke? Select someone DIFFERENT
+- Has everyone had a chance to speak?
+- Whose expertise complements the current discussion?
 
 Available agents: ${names}
-Return ONLY the agent name, nothing else.`,
+Return ONLY the agent name, nothing else. The agent MUST be different from the last speaker.`,
 
     selector: `You are a smart agent selector.
 

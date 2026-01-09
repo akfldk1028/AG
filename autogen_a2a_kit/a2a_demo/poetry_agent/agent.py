@@ -6,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
+from google.adk.models.lite_llm import LiteLlm
 
 # Load .env
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -146,7 +147,7 @@ def get_famous_poem(poet: str) -> dict:
 
 # 시 분석 에이전트
 poetry_agent = Agent(
-    model="openai/gpt-4o-mini",
+    model=LiteLlm(model="openai/gpt-4o-mini"),
     name="poetry_agent",
     description="시와 문학 작품을 분석하고 해석하는 문학 전문 에이전트입니다. 시의 구조, 문학적 기법, 시인 정보를 제공합니다.",
     instruction="""당신은 문학과 시 전문 에이전트입니다.

@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
+from google.adk.models.lite_llm import LiteLlm
 
 # Load .env
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -248,7 +249,7 @@ def compare_eastern_western(concept: str) -> dict:
 
 # 철학 에이전트
 philosophy_agent = Agent(
-    model="openai/gpt-4o-mini",
+    model=LiteLlm(model="openai/gpt-4o-mini"),
     name="philosophy_agent",
     description="철학적 질문에 답하고, 동서양 사상가들의 지혜를 나누는 철학 전문 에이전트입니다.",
     instruction="""당신은 철학 전문 에이전트입니다.

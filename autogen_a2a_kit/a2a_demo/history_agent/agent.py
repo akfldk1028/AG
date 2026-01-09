@@ -6,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
+from google.adk.models.lite_llm import LiteLlm
 
 # Load .env
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -308,7 +309,7 @@ def this_day_in_history(month: int, day: int) -> dict:
 
 # 역사 에이전트
 history_agent = Agent(
-    model="openai/gpt-4o-mini",
+    model=LiteLlm(model="openai/gpt-4o-mini"),
     name="history_agent",
     description="역사적 사건, 인물, 시대를 흥미롭게 이야기해주는 역사 전문 에이전트입니다.",
     instruction="""당신은 역사 이야기꾼 에이전트입니다.

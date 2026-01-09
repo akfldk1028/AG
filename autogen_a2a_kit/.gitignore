@@ -64,3 +64,10 @@ update_*.py
 # Temporary files
 start_server.py
 *.bak
+
+# Startup scripts with API keys (sensitive!)
+start_studio.bat
+start_studio.ps1
+
+# Claude Code internal files
+.claude/

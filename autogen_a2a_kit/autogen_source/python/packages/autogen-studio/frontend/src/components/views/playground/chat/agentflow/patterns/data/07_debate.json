@@ -73,6 +73,9 @@
   "autogen_implementation": {
     "provider": "autogen_agentchat.teams.SelectorGroupChat",
     "label": "Debate Team (찬반 토론)",
+    "requiredConfig": {
+      "allow_repeated_speaker": false
+    },
     "team_config": {
       "participants": [
         {
