@@ -625,6 +625,97 @@ def create_default_lite_team():
         return f.name
 
 
+def create_cohub_gallery() -> GalleryConfig:
+    """Create AG_COHUB gallery by extracting agents from pattern JSON files.
+
+    This gallery contains all the specialized agents defined in the AG_Cohub patterns,
+    providing reusable components for multi-agent collaboration.
+    """
+    import json
+    import glob
+
+    # model clients require API keys to be set in the environment or passed in
+    for key in ["OPENAI_API_KEY", "AZURE_OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+        if not os.environ.get(key):
+            os.environ[key] = "test"
+
+    builder = GalleryBuilder(id="gallery_cohub", name="AG_COHUB Pattern Gallery")
+
+    builder.set_metadata(
+        author="AG_COHUB",
+        description="Multi-agent collaboration patterns with specialized agents for debate, handoff, reflection, and more.",
+        tags=["multi-agent", "patterns", "collaboration", "debate", "handoff"],
+        category="collaboration",
+    )
+
+    # Base model client
+    base_model = OpenAIChatCompletionClient(model="gpt-4o-mini")
+    builder.add_model(base_model.dump_component(), label="OpenAI GPT-4o Mini", description="Default model for pattern agents")
+
+    # Add termination conditions
+    text_term = TextMentionTermination(text="TERMINATE")
+    max_term = MaxMessageTermination(max_messages=20)
+    or_term = text_term | max_term
+
+    builder.add_termination(text_term.dump_component(), label="Text TERMINATE", description="Terminates when TERMINATE is mentioned")
+    builder.add_termination(max_term.dump_component(), label="Max 20 Messages", description="Terminates after 20 messages")
+    builder.add_termination(or_term.dump_component(), label="TERMINATE or Max 20", description="Terminates on TERMINATE or after 20 messages")
+
+    # Find all pattern JSON files
+    # Try multiple possible paths
+    pattern_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "AG_Cohub", "patterns", "*.json"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "..", "AG_Cohub", "patterns", "*.json"),
+        "D:/Data/22_AG/autogen_a2a_kit/AG_Cohub/patterns/*.json",
+    ]
+
+    pattern_files = []
+    for path_pattern in pattern_paths:
+        pattern_files = glob.glob(path_pattern)
+        if pattern_files:
+            break
+
+    # Track unique agents by name to avoid duplicates
+    seen_agents = set()
+
+    for pattern_file in sorted(pattern_files):
+        try:
+            with open(pattern_file, 'r', encoding='utf-8') as f:
+                pattern_data = json.load(f)
+
+            pattern_name = pattern_data.get("name", {}).get("en", "Unknown Pattern")
+            team_config = pattern_data.get("autogen_implementation", {}).get("team_config", {})
+            participants = team_config.get("participants", [])
+
+            for participant in participants:
+                config = participant.get("config", {})
+                agent_name = config.get("name", "")
+
+                if agent_name and agent_name not in seen_agents:
+                    seen_agents.add(agent_name)
+
+                    # Create AssistantAgent with the config
+                    agent = AssistantAgent(
+                        name=agent_name,
+                        description=config.get("description", f"Agent from {pattern_name}"),
+                        system_message=config.get("system_message", "You are a helpful assistant."),
+                        model_client=base_model,
+                        handoffs=config.get("handoffs", None),
+                    )
+
+                    builder.add_agent(
+                        agent.dump_component(),
+                        label=f"{agent_name} ({pattern_name})",
+                        description=config.get("description", f"Agent from {pattern_name} pattern"),
+                    )
+        except Exception as e:
+            # Log error but continue with other files
+            print(f"Warning: Failed to load pattern file {pattern_file}: {e}")
+            continue
+
+    return builder.build()
+
+
 if __name__ == "__main__":
     # Create and save the gallery
     gallery = create_default_gallery()
@@ -632,3 +723,8 @@ if __name__ == "__main__":
     # Save to file
     with open("gallery_default.json", "w") as f:
         f.write(gallery.model_dump_json(indent=2))
+
+    # Also create and save the COHUB gallery
+    cohub_gallery = create_cohub_gallery()
+    with open("gallery_cohub.json", "w") as f:
+        f.write(cohub_gallery.model_dump_json(indent=2))

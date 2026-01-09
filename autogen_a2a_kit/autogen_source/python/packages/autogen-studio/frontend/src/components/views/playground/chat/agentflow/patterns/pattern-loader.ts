@@ -286,6 +286,13 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
   const providerShort = extractProviderShort(providerFull);
   const teamConfig = json.autogen_implementation.team_config;
 
+  // AssistantAgent 필수 필드 기본값
+  const ASSISTANT_AGENT_DEFAULTS = {
+    reflect_on_tool_use: false,
+    tool_call_summary_format: "{result}",
+    model_client_stream: false,
+  };
+
   // 참가자 생성
   const participants: Component<AgentConfig>[] = teamConfig?.participants?.map((p) => ({
     provider: p.provider,
@@ -296,6 +303,8 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
       system_message: p.config.system_message,
       model_client: DEFAULT_MODEL_CLIENT,
       ...(p.config.handoffs ? { handoffs: p.config.handoffs } : {}),
+      // AssistantAgent 필수 필드 추가
+      ...ASSISTANT_AGENT_DEFAULTS,
     } as AgentConfig,
   })) || [
     // 기본 참가자 (JSON에 없는 경우)
@@ -307,6 +316,7 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
         description: "First agent",
         system_message: "You are a helpful assistant.",
         model_client: DEFAULT_MODEL_CLIENT,
+        ...ASSISTANT_AGENT_DEFAULTS,
       } as AgentConfig,
     },
     {
@@ -317,6 +327,7 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
         description: "Second agent",
         system_message: "You are a helpful assistant. Say TERMINATE when done.",
         model_client: DEFAULT_MODEL_CLIENT,
+        ...ASSISTANT_AGENT_DEFAULTS,
       } as AgentConfig,
     },
   ];
@@ -330,7 +341,9 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
   // SelectorGroupChat/MagenticOneGroupChat는 model_client 필요
   if (providerShort === "SelectorGroupChat" || providerShort === "MagenticOneGroupChat") {
     config.model_client = DEFAULT_MODEL_CLIENT;
-    config.allow_repeated_speaker = true;
+    // Read allow_repeated_speaker from JSON config, default to true
+    const jsonRequiredConfig = json.autogen_implementation?.requiredConfig;
+    config.allow_repeated_speaker = jsonRequiredConfig?.allow_repeated_speaker ?? true;
   }
 
   // selector_prompt 추가

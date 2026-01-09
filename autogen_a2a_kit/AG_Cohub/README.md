@@ -1,4 +1,5 @@
-# AG_Cohub - Multi-Agent Collaboration Patterns
+
+프론트엔드 또 안도# AG_Cohub - Multi-Agent Collaboration Patterns
 
 AI 에이전트 오케스트레이션을 위한 멀티 에이전트 협업 패턴 종합 컬렉션입니다.
 

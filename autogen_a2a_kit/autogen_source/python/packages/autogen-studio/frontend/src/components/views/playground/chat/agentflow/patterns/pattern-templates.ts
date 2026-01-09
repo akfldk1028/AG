@@ -69,7 +69,17 @@ export const COMBINED_TERMINATION = {
 // ============================================
 
 /**
+ * AssistantAgent 필수 필드 기본값
+ */
+const ASSISTANT_AGENT_DEFAULTS = {
+  reflect_on_tool_use: false,
+  tool_call_summary_format: "{result}",
+  model_client_stream: false,
+};
+
+/**
  * Create a basic agent configuration
+ * Includes all required fields for AssistantAgentConfig
  */
 export const createAgentConfig = (
   name: string,
@@ -84,6 +94,8 @@ export const createAgentConfig = (
     description,
     system_message: systemMessage || `You are ${name}. ${description}`,
     model_client: modelClient,
+    // AssistantAgent 필수 필드
+    ...ASSISTANT_AGENT_DEFAULTS,
   } as AgentConfig,
 });
 

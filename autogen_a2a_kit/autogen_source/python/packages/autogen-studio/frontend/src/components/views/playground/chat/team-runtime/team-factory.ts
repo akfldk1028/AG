@@ -155,19 +155,41 @@ type ModelClientConfig = {
 };
 
 /**
- * Ensure an agent has a model_client configured
+ * AssistantAgent 필수 필드 기본값
+ * AutoGen의 AssistantAgentConfig는 이 필드들이 필수입니다.
+ */
+const ASSISTANT_AGENT_DEFAULTS = {
+  reflect_on_tool_use: false,
+  tool_call_summary_format: "{result}",
+  model_client_stream: false,
+};
+
+/**
+ * Ensure an agent has model_client and required fields configured
+ * For AssistantAgent, this also ensures reflect_on_tool_use, tool_call_summary_format, model_client_stream
  */
 const ensureAgentModelClient = (
   agent: Component<AgentConfig>,
   defaultClient: ModelClientConfig
 ): Component<AgentConfig> => {
   const config = agent.config as any;
-  if (!config?.model_client) {
+  const isAssistantAgent = agent.provider?.includes("AssistantAgent");
+
+  // 필수 필드들이 이미 설정되어 있는지 확인
+  const needsModelClient = !config?.model_client;
+  const needsAssistantDefaults = isAssistantAgent && (
+    config?.reflect_on_tool_use === undefined ||
+    config?.tool_call_summary_format === undefined ||
+    config?.model_client_stream === undefined
+  );
+
+  if (needsModelClient || needsAssistantDefaults) {
     return {
       ...agent,
       config: {
         ...config,
-        model_client: { ...defaultClient },
+        ...(needsModelClient ? { model_client: { ...defaultClient } } : {}),
+        ...(needsAssistantDefaults ? ASSISTANT_AGENT_DEFAULTS : {}),
       },
     };
   }
@@ -361,11 +383,12 @@ export const applyPatternToExistingTeam = (
       console.log(`📝 Dynamic selector_prompt generated for pattern "${patternId}" with agents:\n${existingAgents.map(a => `  - ${a.name}: ${a.description}`).join('\n')}`);
     }
 
-    // Set allow_repeated_speaker
-    if (config.allow_repeated_speaker === undefined) {
-      config.allow_repeated_speaker =
-        pattern.requiredConfig?.allow_repeated_speaker ?? true;
-    }
+    // Set allow_repeated_speaker from pattern config
+    // IMPORTANT: Always apply pattern's value when applying a pattern!
+    // For debate patterns, this MUST be false to ensure speaker rotation.
+    config.allow_repeated_speaker =
+      pattern.requiredConfig?.allow_repeated_speaker ?? true;
+    console.log(`🔄 allow_repeated_speaker set to: ${config.allow_repeated_speaker} (from pattern "${patternId}")`);
   }
 
   // Ensure all participants have model_client

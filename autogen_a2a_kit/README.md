@@ -191,6 +191,71 @@ Microsoft AutoGen과 Google A2A(Agent-to-Agent) 프로토콜을 연동한 멀티
 
 ---
 
+## ⚠️ 필수! A2A 에이전트 서버 먼저 실행
+
+> **CRITICAL**: AutoGen Studio에서 A2A 에이전트를 사용하려면 **반드시** A2A 서버들을 먼저 실행해야 합니다!
+>
+> 에러 메시지 `A2A 호출 실패: All connection attempts failed`가 나오면 → A2A 서버가 실행되지 않은 것!
+
+### A2A 서버 시작 (반드시 먼저!)
+
+**PowerShell에서 각 터미널에서 실행:**
+
+```powershell
+# 터미널 1: History Agent (포트 8003)
+cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\history_agent
+python agent.py
+
+# 터미널 2: Philosophy Agent (포트 8004)
+cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\philosophy_agent
+python agent.py
+
+# 터미널 3: Poetry Agent (포트 8005)
+cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\poetry_agent
+python agent.py
+
+# 터미널 4: Calculator Agent (포트 8006)
+cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\calculator_agent
+python agent.py
+```
+
+**또는 한 줄로 여러 창 열기 (PowerShell):**
+
+```powershell
+# 모든 A2A 서버 새 창에서 시작
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\history_agent; python agent.py'
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\philosophy_agent; python agent.py'
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\poetry_agent; python agent.py'
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\calculator_agent; python agent.py'
+```
+
+### 서버 실행 확인
+
+```powershell
+# 포트 확인 - 8003, 8004, 8005, 8006이 LISTENING이면 성공
+netstat -an | findstr ":8003 :8004 :8005 :8006"
+```
+
+예상 출력:
+```
+TCP    127.0.0.1:8003         0.0.0.0:0              LISTENING
+TCP    127.0.0.1:8004         0.0.0.0:0              LISTENING
+TCP    127.0.0.1:8005         0.0.0.0:0              LISTENING
+TCP    127.0.0.1:8006         0.0.0.0:0              LISTENING
+```
+
+### 이제 AutoGen Studio 실행
+
+```powershell
+cd D:\Data\22_AG\autogen_a2a_kit
+python start_server.py
+# 또는: autogenstudio ui --port 8081
+```
+
+브라우저에서 http://127.0.0.1:8081 접속
+
+---
+
 ## 즉시 실행 (복붙용)
 
 ### ⚠️ 필수: .env 파일 확인
@@ -249,6 +314,150 @@ stop_all.bat
 | `OPENAI_API_KEY environment variable` | API 키 미설정 | `.env` 파일 확인, 환경변수 설정 |
 | `Address already in use :8081` | 이미 실행 중 | `netstat -ano \| findstr :8081`로 PID 확인 후 종료 |
 | `Module not found` | 패키지 미설치 | `pip install -e autogen_source/python/packages/autogen-studio` |
+
+---
+
+## 📊 패턴(Pattern) 파라미터 상세 설명
+
+> **이 섹션은 각 패턴의 핵심 파라미터를 설명합니다.**
+
+### 패턴 요약 테이블
+
+| ID | 패턴명 | Provider | 핵심 파라미터 | 용도 |
+|----|--------|----------|--------------|------|
+| 01 | Sequential | RoundRobinGroupChat | - | 순차적 대화 |
+| 02 | Concurrent | RoundRobinGroupChat | - | 병렬 처리 후 취합 |
+| 03 | Selector | SelectorGroupChat | `model_client`, `selector_prompt`, `allow_repeated_speaker` | LLM이 다음 발언자 선택 |
+| 04 | Group Chat | RoundRobinGroupChat | - | 라운드로빈 대화 |
+| 05 | Handoff (Swarm) | Swarm | `handoffs` | 에이전트 간 핸드오프 |
+| 06 | Magentic | MagenticOneGroupChat | `model_client` | 오케스트레이터 패턴 |
+| 07 | Debate | SelectorGroupChat | `allow_repeated_speaker: false` | 토론/반박 |
+| 08 | Reflection | SelectorGroupChat | - | 작업자+검토자 |
+| 09 | Hierarchical | SelectorGroupChat | - | 계층적 위임 |
+
+---
+
+### 03. Selector Pattern 파라미터
+
+```json
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "config": {
+    "model_client": { ... },           // ★ 필수: Selector LLM
+    "selector_prompt": "...",          // ★ 핵심: 선택 기준 프롬프트
+    "allow_repeated_speaker": true,    // 같은 에이전트 연속 선택 허용
+    "participants": [ ... ]
+  }
+}
+```
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `model_client` | object | Selector LLM (에이전트 선택용) |
+| `selector_prompt` | string | LLM에게 전달되는 선택 기준 프롬프트 |
+| `allow_repeated_speaker` | boolean | `true`: 같은 에이전트 연속 허용, `false`: 강제 로테이션 |
+
+---
+
+### 05. Swarm (Handoff) Pattern 파라미터
+
+```json
+{
+  "provider": "autogen_agentchat.teams.Swarm",
+  "config": {
+    "participants": [
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "config": {
+          "name": "triage_agent",
+          "handoffs": ["specialist_a", "specialist_b"]  // ★ 핸드오프 대상
+        }
+      }
+    ]
+  }
+}
+```
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `handoffs` | string[] | 이 에이전트가 작업을 넘길 수 있는 대상 에이전트 이름 목록 |
+
+---
+
+### 06. Magentic One Pattern 파라미터
+
+```json
+{
+  "provider": "autogen_agentchat.teams.MagenticOneGroupChat",
+  "config": {
+    "model_client": { ... },  // ★ 필수: Orchestrator LLM
+    "participants": [ ... ]
+  }
+}
+```
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `model_client` | object | Orchestrator LLM (작업 분배/통합) |
+
+---
+
+### 07. Debate Pattern 파라미터 (★ 중요!)
+
+**핵심**: `allow_repeated_speaker: false`로 설정해야 에이전트 로테이션 강제!
+
+```json
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "autogen_implementation": {
+    "requiredConfig": {
+      "allow_repeated_speaker": false  // ★ 핵심: 강제 로테이션
+    }
+  },
+  "config": {
+    "model_client": { ... },
+    "selector_prompt": "NEVER select the same agent twice in a row...",
+    "allow_repeated_speaker": false,
+    "participants": [ ... ]
+  }
+}
+```
+
+| 설정 | 동작 |
+|------|------|
+| `allow_repeated_speaker: true` (기본값) | 같은 에이전트 계속 선택 가능 → 한 명만 응답하는 문제 발생! |
+| `allow_repeated_speaker: false` | 반드시 다른 에이전트 선택 → 토론 로테이션 |
+
+---
+
+### 공통 파라미터
+
+모든 패턴에 적용되는 공통 파라미터:
+
+```json
+{
+  "config": {
+    "participants": [ ... ],          // 참가 에이전트 목록
+    "termination_condition": {        // 종료 조건
+      "provider": "autogen_agentchat.conditions.TextMentionTermination",
+      "config": { "text": "TERMINATE" }
+    }
+  }
+}
+```
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `participants` | array | 팀에 참여하는 에이전트 목록 |
+| `termination_condition` | object | 대화 종료 조건 |
+
+### 종료 조건 종류
+
+| Provider | 설명 |
+|----------|------|
+| `TextMentionTermination` | 특정 텍스트("TERMINATE") 언급 시 종료 |
+| `MaxMessageTermination` | 최대 메시지 수 도달 시 종료 |
+| `OrTermination` | 여러 조건 중 하나라도 만족 시 종료 |
 
 ---
 
@@ -596,6 +805,9 @@ curl -X POST http://localhost:8006 -H "Content-Type: application/json" -d "{\"js
 | 8004 | philosophy_agent | A2A 철학 지혜 에이전트 |
 | 8005 | history_agent | A2A 역사 스토리텔러 에이전트 |
 | 8006 | calculator_agent | A2A 계산기 에이전트 |
+| 8007 | math_agent | A2A 수학 전문가 에이전트 |
+| 8008 | graphics_agent | A2A 컴퓨터 그래픽스 에이전트 |
+| 8009 | gpu_agent | A2A GPU/병렬컴퓨팅 에이전트 |
 
 ## 한 번에 모든 서비스 실행
 
@@ -841,61 +1053,155 @@ autogen_source/python/packages/
 
 수정 후 재설치 불필요. 파일 저장만 하면 됩니다.
 
-## 새로운 A2A 에이전트 추가하기
+## 새로운 A2A 에이전트 추가하기 (★ AI/개발자 필독!)
 
-### 1. 에이전트 서버 생성
+> **이 섹션을 따라하면 5분 안에 새 에이전트를 추가할 수 있습니다.**
 
-`a2a_demo/your_agent/agent.py` 파일 생성:
+### 체크리스트 (복붙용)
+
+```
+[ ] 1. 포트 번호 결정 (8010, 8011, ...)
+[ ] 2. a2a_demo/{agent_name}/ 폴더 생성
+[ ] 3. agent.py 파일 생성 (아래 템플릿 복사)
+[ ] 4. CLAUDE.md 에이전트 테이블 업데이트
+[ ] 5. run_all.ps1 에이전트 배열 업데이트
+[ ] 6. 서버 실행 및 테스트
+```
+
+### Step 1: 포트 번호 결정
+
+현재 사용 중인 포트:
+- 8003-8009: 기존 에이전트
+- **다음 가용 포트: 8010**
+
+### Step 2: 에이전트 템플릿 복사
+
+`a2a_demo/{your_agent_name}/agent.py` 생성:
 
 ```python
+# {Agent Name} Agent - A2A Protocol
+# {에이전트 설명}
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 from google.adk.agents import Agent
-from google.adk.runners import Runner
-from google.adk.servers import A2AServer
+from google.adk.tools import FunctionTool
+from google.adk.models.lite_llm import LiteLlm  # ★ 필수!
 
-def your_function(query: str) -> str:
-    """함수 설명"""
+# Load .env
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    load_dotenv()
+
+if not os.environ.get("OPENAI_API_KEY"):
+    raise ValueError("OPENAI_API_KEY not found")
+
+
+# ★ 도구 함수 정의 (docstring 필수!)
+def your_tool_function(param1: str, param2: int = 10) -> dict:
+    """도구 함수 설명 (한 줄).
+
+    Args:
+        param1: 첫 번째 매개변수 설명
+        param2: 두 번째 매개변수 설명 (기본값: 10)
+
+    Returns:
+        결과 딕셔너리
+    """
     # 로직 구현
-    return result
+    return {"result": f"처리됨: {param1}", "value": param2}
 
-agent = Agent(
-    name="your_agent",
-    model="gpt-4o-mini",
-    description="Your agent description",
-    instruction="Your agent instructions",
-    tools=[your_function]
+
+# ★ 에이전트 정의
+your_agent = Agent(
+    model=LiteLlm(model="openai/gpt-4o-mini"),  # ★ LiteLlm 래퍼 필수!
+    name="your_agent_name",  # ★ 이 이름이 AutoGen에서 사용됨
+    description="에이전트가 하는 일을 명확하게 기술. Selector LLM이 이걸 보고 선택함!",
+    instruction="""당신은 {역할} 전문가 에이전트입니다.
+
+주요 기능:
+1. 기능 1 설명
+2. 기능 2 설명
+
+토론 시 역할:
+- 어떤 관점에서 분석하는지
+- 어떤 전문성을 제공하는지
+
+한국어로 응답해주세요.""",
+    tools=[
+        FunctionTool(your_tool_function),
+        # FunctionTool(another_function),
+    ]
 )
 
-runner = Runner(agent=agent, app_name="your_agent")
-server = A2AServer(runner=runner, host="0.0.0.0", port=8004)
 
 if __name__ == "__main__":
-    server.start()
+    import uvicorn
+    from google.adk.a2a.utils.agent_to_a2a import to_a2a
+
+    PORT = 8010  # ★ 사용할 포트 번호
+
+    print("=" * 50)
+    print(f"Your Agent Name - A2A Server")
+    print("=" * 50)
+    print(f"Port: {PORT}")
+    print(f"Agent Card: http://localhost:{PORT}/.well-known/agent-card.json")
+    print("=" * 50)
+
+    a2a_app = to_a2a(your_agent, port=PORT, host="127.0.0.1")
+    uvicorn.run(a2a_app, host="127.0.0.1", port=PORT)
 ```
 
-### 2. 서버 실행
+### Step 3: CLAUDE.md 업데이트
 
-```bash
-python a2a_demo/your_agent/agent.py
+`.claude/CLAUDE.md` 파일의 에이전트 테이블에 추가:
+
+```markdown
+| your_agent | 8010 | a2a_demo/your_agent/agent.py | 전문 분야 |
 ```
 
-### 3. AutoGen Studio에 등록
+### Step 4: run_all.ps1 업데이트
 
-AutoGen Studio UI에서 팀 생성 시 A2AAgent로 추가:
+`run_all.ps1`의 `$agents` 배열에 추가:
 
-```json
-{
-    "provider": "autogenstudio.a2a.A2AAgent",
-    "component_type": "agent",
-    "version": 1,
-    "config": {
-        "name": "your_agent",
-        "a2a_server_url": "http://localhost:8004",
-        "description": "Your agent description",
-        "timeout": 60,
-        "skills": []
-    }
-}
+```powershell
+$agents = @(
+    # ... 기존 에이전트들 ...
+    @{Name="your_agent"; Port=8010}
+)
 ```
+
+### Step 5: 서버 실행 및 테스트
+
+```powershell
+# 서버 시작
+cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\your_agent
+python agent.py
+
+# 다른 터미널에서 테스트
+curl http://localhost:8010/.well-known/agent-card.json
+```
+
+### ★ 핵심 규칙
+
+| 규칙 | 설명 |
+|------|------|
+| `LiteLlm(model="openai/gpt-4o-mini")` | OpenAI 모델은 반드시 LiteLlm 래퍼 사용 |
+| `name` 일관성 | agent.py의 name = AutoGen JSON의 name |
+| `description` 중요 | Selector LLM이 이걸 보고 에이전트 선택 |
+| docstring 필수 | 도구 함수에 docstring 없으면 작동 안 함 |
+
+### 기존 에이전트 참고
+
+| 에이전트 | 참고 포인트 |
+|----------|-------------|
+| `calculator_agent` | 기본 도구 함수 구조 |
+| `math_agent` | 수학 함수 (이차방정식, 피보나치) |
+| `graphics_agent` | 복잡한 도구 (색공간 변환, 렌더링 파이프라인) |
+| `gpu_agent` | 기술 도메인 전문 에이전트 |
 
 ## 프론트엔드 개발 (UI 수정 시)
 

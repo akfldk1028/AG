@@ -40,13 +40,33 @@ if ($port8081) {
     Start-Sleep -Seconds 3
 }
 
-# 5. A2A 에이전트 시작 (옵션)
+# 5. A2A 에이전트 시작 (7개 에이전트)
 $a2aPath = Join-Path $PSScriptRoot "a2a_demo"
+$agents = @(
+    @{Name="poetry_agent"; Port=8003},
+    @{Name="philosophy_agent"; Port=8004},
+    @{Name="history_agent"; Port=8005},
+    @{Name="calculator_agent"; Port=8006},
+    @{Name="math_agent"; Port=8007},
+    @{Name="graphics_agent"; Port=8008},
+    @{Name="gpu_agent"; Port=8009}
+)
+
 if (Test-Path $a2aPath) {
     Write-Host ""
-    Write-Host "A2A agents available in: $a2aPath" -ForegroundColor Gray
-    Write-Host "To start individual A2A agents:" -ForegroundColor Gray
-    Write-Host "  cd a2a_demo/calculator_agent && python agent.py" -ForegroundColor Gray
+    Write-Host "[START] Starting A2A Agents..." -ForegroundColor Cyan
+    foreach ($agent in $agents) {
+        $agentPath = Join-Path $a2aPath $agent.Name
+        if (Test-Path $agentPath) {
+            $portInUse = Get-NetTCPConnection -LocalPort $agent.Port -ErrorAction SilentlyContinue
+            if (-not $portInUse) {
+                Write-Host "  Starting $($agent.Name) on port $($agent.Port)..." -ForegroundColor Gray
+                Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$agentPath'; python agent.py"
+            } else {
+                Write-Host "  $($agent.Name) already running on port $($agent.Port)" -ForegroundColor Yellow
+            }
+        }
+    }
 }
 
 Write-Host ""
