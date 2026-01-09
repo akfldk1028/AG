@@ -101,12 +101,28 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
                 )
                 result = response.json()
 
-                # 응답에서 텍스트 추출
-                if "result" in result and "artifacts" in result["result"]:
-                    for artifact in result["result"]["artifacts"]:
-                        for part in artifact.get("parts", []):
-                            if "text" in part:
-                                return part["text"]
+                # 응답에서 텍스트 추출 - 여러 형식 지원
+                if "result" in result:
+                    res = result["result"]
+
+                    # 형식 1: artifacts (표준 A2A 응답)
+                    if "artifacts" in res:
+                        for artifact in res["artifacts"]:
+                            for part in artifact.get("parts", []):
+                                if "text" in part:
+                                    return part["text"]
+
+                    # 형식 2: history (대화 기록 형식)
+                    if "history" in res:
+                        # 마지막 assistant/agent 메시지에서 텍스트 추출 (user 제외)
+                        for msg in reversed(res["history"]):
+                            role = msg.get("role", "")
+                            # user가 아닌 응답만 처리 (agent, assistant 등)
+                            if role and role != "user":
+                                for part in msg.get("parts", []):
+                                    text = part.get("text")
+                                    if text:
+                                        return text
 
                 if "error" in result:
                     return f"A2A 에러: {result['error']}"
