@@ -34,6 +34,8 @@ interface RunViewProps {
     content: string;
     source: string;
   } | null;
+  viewMode?: "pattern" | "execution";
+  selectedPatternId?: string;  // Pattern override for visualization
 }
 
 interface StreamingMessageProps {
@@ -75,8 +77,28 @@ const StreamingMessage: React.FC<StreamingMessageProps> = ({
   );
 };
 
+/**
+ * Helper to check if message content is empty or has placeholder text
+ */
+const isEmptyOrPlaceholderContent = (content: unknown): boolean => {
+  if (!content) return true;
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    // Filter out empty strings and Korean "no message" placeholder
+    return trimmed === "" || trimmed === "메시지가 없습니다" || trimmed === "메시지가 없습니다.";
+  }
+  if (Array.isArray(content) && content.length === 0) return true;
+  return false;
+};
+
 export const getAgentMessages = (messages: Message[]): Message[] => {
-  return messages.filter((msg) => msg.config.source !== "llm_call_event");
+  return messages.filter((msg) => {
+    // Filter out llm_call_event messages
+    if (msg.config.source === "llm_call_event") return false;
+    // Filter out messages with empty or placeholder content
+    if (isEmptyOrPlaceholderContent(msg.config.content)) return false;
+    return true;
+  });
 };
 
 export const getLastMeaningfulMessage = (
@@ -99,6 +121,8 @@ const RunView: React.FC<RunViewProps> = ({
   teamConfig,
   isFirstRun = false,
   streamingContent,
+  viewMode = "pattern",
+  selectedPatternId,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
@@ -131,12 +155,21 @@ const RunView: React.FC<RunViewProps> = ({
   }, [run, isReplaying, originalRun, replayMessageIndex]);
 
   const visibleMessages = useMemo(() => {
-    if (uiSettings.show_llm_call_events) {
-      return displayRun.messages;
-    }
-    return displayRun.messages.filter(
-      (msg) => msg.config.source !== "llm_call_event"
+    let messages = displayRun.messages;
+
+    // Always filter out empty/placeholder content
+    messages = messages.filter(
+      (msg) => !isEmptyOrPlaceholderContent(msg.config.content)
     );
+
+    // Filter out llm_call_events unless setting is enabled
+    if (!uiSettings.show_llm_call_events) {
+      messages = messages.filter(
+        (msg) => msg.config.source !== "llm_call_event"
+      );
+    }
+
+    return messages;
   }, [displayRun.messages, uiSettings.show_llm_call_events]);
 
   // Replay functions
@@ -671,6 +704,8 @@ const RunView: React.FC<RunViewProps> = ({
                               ...displayRun,
                               messages: getAgentMessages(visibleMessages),
                             }}
+                            viewMode={viewMode}
+                            selectedPatternId={selectedPatternId}
                           />
                         )}
                       </div>

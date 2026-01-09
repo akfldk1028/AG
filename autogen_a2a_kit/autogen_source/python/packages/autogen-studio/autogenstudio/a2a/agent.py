@@ -3,6 +3,7 @@
 A2A (Agent-to-Agent) 프로토콜을 통해 외부 에이전트와 통신하는 래퍼 에이전트.
 AutoGen의 팀에 직접 에이전트로 추가할 수 있습니다.
 """
+import logging
 import uuid
 from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence
 
@@ -16,6 +17,8 @@ from autogen_agentchat.messages import (
 )
 from autogen_core import CancellationToken, Component, ComponentModel
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class A2AAgentConfig(BaseModel):
@@ -65,6 +68,9 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
         self._timeout = timeout
         self._skills = skills or []
         self._session_id = str(uuid.uuid4())
+        # 마지막 컨텍스트 저장 (빈 메시지 문제 해결)
+        self._last_query: Optional[str] = None
+        self._message_history: List[str] = []
 
     @property
     def produced_message_types(self) -> Sequence[type[ChatMessage]]:
@@ -120,23 +126,42 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
         """메시지 처리 - 마지막 메시지를 A2A 서버로 전달"""
         # 마지막 메시지 추출
         if not messages:
-            return Response(
-                chat_message=TextMessage(
-                    content="메시지가 없습니다.",
-                    source=self.name
+            # 메시지가 없으면 마지막 컨텍스트 사용 시도
+            if self._last_query:
+                logger.info(
+                    f"A2AAgent '{self.name}' received empty messages - using last context: '{self._last_query[:50]}...'"
                 )
-            )
-
-        last_message = messages[-1]
-
-        # 메시지 내용 추출
-        if isinstance(last_message, TextMessage):
-            query = last_message.content
+                # 마지막 쿼리로 A2A 호출 (같은 쿼리에 대한 추가 정보 요청)
+                response_text = await self._call_a2a(
+                    f"이전 질문에 대해 추가 정보가 있나요? (이전 질문: {self._last_query})"
+                )
+            else:
+                logger.warning(
+                    f"A2AAgent '{self.name}' received empty messages and no context - returning pass"
+                )
+                return Response(
+                    chat_message=TextMessage(
+                        content=f"[{self.name}] 컨텍스트가 없어 대기 중입니다.",
+                        source=self.name
+                    )
+                )
         else:
-            query = str(last_message)
+            last_message = messages[-1]
 
-        # A2A 호출
-        response_text = await self._call_a2a(query)
+            # 메시지 내용 추출
+            if isinstance(last_message, TextMessage):
+                query = last_message.content
+            else:
+                query = str(last_message)
+
+            # 컨텍스트 저장
+            self._last_query = query
+            self._message_history.append(query)
+            if len(self._message_history) > 10:  # 최대 10개 메시지만 유지
+                self._message_history = self._message_history[-10:]
+
+            # A2A 호출
+            response_text = await self._call_a2a(query)
 
         return Response(
             chat_message=TextMessage(
@@ -158,6 +183,22 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
     async def on_reset(self, cancellation_token: CancellationToken) -> None:
         """에이전트 상태 리셋"""
         self._session_id = str(uuid.uuid4())
+        self._last_query = None
+        self._message_history.clear()
+
+    async def save_state(self) -> Mapping[str, Any]:
+        """에이전트 상태 저장"""
+        return {
+            "session_id": self._session_id,
+            "last_query": self._last_query,
+            "message_history": self._message_history.copy(),
+        }
+
+    async def load_state(self, state: Mapping[str, Any]) -> None:
+        """에이전트 상태 로드"""
+        self._session_id = state.get("session_id", str(uuid.uuid4()))
+        self._last_query = state.get("last_query")
+        self._message_history = list(state.get("message_history", []))
 
     def _to_config(self) -> A2AAgentConfig:
         """설정으로 변환"""

@@ -36,7 +36,7 @@ from autogen_core.models import (
     SystemMessage,
 )
 from autogen_core.tools import BaseTool, FunctionTool, StaticStreamWorkbench, ToolResult, Workbench
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
 
 from .. import EVENT_LOGGER_NAME
@@ -73,7 +73,7 @@ class AssistantAgentConfig(BaseModel):
     name: str
     model_client: ComponentModel
     tools: List[ComponentModel] | None = None
-    workbench: List[ComponentModel] | None = None
+    workbench: List[ComponentModel] | ComponentModel | None = None
     handoffs: List[HandoffBase | str] | None = None
     model_context: ComponentModel | None = None
     memory: List[ComponentModel] | None = None
@@ -85,6 +85,16 @@ class AssistantAgentConfig(BaseModel):
     max_tool_iterations: int = Field(default=1, ge=1)
     metadata: Dict[str, str] | None = None
     structured_message_factory: ComponentModel | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_workbench(cls, data: Any) -> Any:
+        """Convert single workbench dict to list for backward compatibility."""
+        if isinstance(data, dict) and "workbench" in data:
+            wb = data["workbench"]
+            if wb is not None and isinstance(wb, dict):
+                data["workbench"] = [wb]
+        return data
 
 
 class AssistantAgent(BaseChatAgent, Component[AssistantAgentConfig]):
@@ -1701,3 +1711,25 @@ class AssistantAgent(BaseChatAgent, Component[AssistantAgentConfig]):
             output_content_type_format=format_string,
             metadata=config.metadata,
         )
+
+    @classmethod
+    def _from_config_past_version(cls, config: Dict[str, Any], version: int) -> Self:
+        """Migrate from a previous version of the configuration.
+
+        This handles the v1 -> v2 migration where reflect_on_tool_use and
+        tool_call_summary_format became required fields.
+        """
+        if version == 1:
+            # Add default values for fields that became required in v2
+            if "reflect_on_tool_use" not in config:
+                config["reflect_on_tool_use"] = False
+            if "tool_call_summary_format" not in config:
+                config["tool_call_summary_format"] = "{result}"
+            if "metadata" not in config:
+                config["metadata"] = {}
+
+            # Now we can parse with the v2 schema
+            parsed_config = AssistantAgentConfig.model_validate(config)
+            return cls._from_config(parsed_config)
+
+        raise NotImplementedError(f"Migration from version {version} is not supported")

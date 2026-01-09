@@ -1,0 +1,21 @@
+{
+  "provider": "autogen_agentchat.teams.RoundRobinGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "description": "반성 팀 - 생성 → 비평 → 개선 루프",
+  "label": "Reflection Team (Template)",
+  "config": {
+    "participants": [
+      {
+        "name": "generator",
+        "role": "콘텐츠 생성"
+      },
+      {
+        "name": "critic",
+        "role": "품질 검토"
+      }
+    ],
+    "termination": "APPROVED 또는 최대 6회"
+  },
+  "_note": "이 템플릿은 AutoGen이 설치된 환경에서 cohub_loader.py를 실행하여 완전한 버전을 생성하세요."
+}

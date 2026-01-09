@@ -1,0 +1,38 @@
+{
+  "provider": "autogen_agentchat.teams.Swarm",
+  "component_type": "team",
+  "version": 1,
+  "description": "핸드오프 팀 - 고객 서비스 라우팅",
+  "label": "Handoff Team (Template)",
+  "config": {
+    "participants": [
+      {
+        "name": "triage_agent",
+        "handoffs": [
+          "support_agent",
+          "sales_agent",
+          "refund_agent"
+        ]
+      },
+      {
+        "name": "support_agent",
+        "handoffs": [
+          "triage_agent"
+        ]
+      },
+      {
+        "name": "sales_agent",
+        "handoffs": [
+          "triage_agent"
+        ]
+      },
+      {
+        "name": "refund_agent",
+        "handoffs": [
+          "triage_agent"
+        ]
+      }
+    ]
+  },
+  "_note": "이 템플릿은 AutoGen이 설치된 환경에서 cohub_loader.py를 실행하여 완전한 버전을 생성하세요."
+}

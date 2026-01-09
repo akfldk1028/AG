@@ -10,7 +10,7 @@ import aiofiles
 import yaml
 from autogen_agentchat.agents import UserProxyAgent
 from autogen_agentchat.base import TaskResult
-from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage
+from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, TextMessage
 from autogen_agentchat.teams import BaseGroupChat
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken, ComponentModel
 from autogen_core.logging import LLMCallEvent
@@ -20,9 +20,41 @@ from ..web.managers.run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
+# Placeholder messages that indicate empty/meaningless content
+EMPTY_MESSAGE_PATTERNS = [
+    "",
+    "메시지가 없습니다",
+    "메시지가 없습니다.",
+    "No message",
+    "No message.",
+]
+
+# Maximum consecutive empty messages before auto-termination
+MAX_CONSECUTIVE_EMPTY = 3
+
 SyncInputFunc = Callable[[str], str]
 AsyncInputFunc = Callable[[str, Optional[CancellationToken]], Awaitable[str]]
 InputFuncType = Union[SyncInputFunc, AsyncInputFunc]
+
+
+def is_empty_message(message: Union[BaseAgentEvent, BaseChatMessage]) -> bool:
+    """Check if a message is empty or contains only placeholder text"""
+    if not hasattr(message, 'content'):
+        return False
+
+    content = message.content
+    if content is None:
+        return True
+
+    if isinstance(content, str):
+        trimmed = content.strip()
+        return trimmed in EMPTY_MESSAGE_PATTERNS
+
+    # For list content, check if all items are empty
+    if isinstance(content, list):
+        return len(content) == 0
+
+    return False
 
 
 class RunEventLogger(logging.Handler):
@@ -98,7 +130,17 @@ class TeamManager:
             for var in env_vars:
                 os.environ[var.name] = var.value
 
+        # ===== DEBUGGING: Log the provider being used =====
+        provider = config.get("provider", "unknown")
+        logger.info(f"[PATTERN] CREATING TEAM with provider: {provider}")
+        print(f"\n{'='*60}\n[PATTERN] TEAM PROVIDER: {provider}\n{'='*60}\n")
+
         self._team = BaseGroupChat.load_component(config)
+
+        # ===== DEBUGGING: Log the actual team type created =====
+        team_type = type(self._team).__name__
+        logger.info(f"[PATTERN] TEAM CREATED: {team_type}")
+        print(f"[PATTERN] TEAM TYPE: {team_type}\n{'='*60}\n")
 
         for agent in self._team._participants:  # type: ignore
             if hasattr(agent, "input_func") and isinstance(agent, UserProxyAgent) and input_func:
@@ -127,6 +169,9 @@ class TeamManager:
         try:
             team = await self._create_team(team_config, input_func, env_vars)
 
+            # Track consecutive empty messages for early termination
+            consecutive_empty_count = 0
+
             async for message in team.run_stream(task=task, cancellation_token=cancellation_token):
                 if cancellation_token and cancellation_token.is_cancelled():
                     break
@@ -134,7 +179,33 @@ class TeamManager:
                 if isinstance(message, TaskResult):
                     yield TeamResult(task_result=message, usage="", duration=time.time() - start_time)
                 else:
-                    yield message
+                    # Check for empty messages
+                    if is_empty_message(message):
+                        consecutive_empty_count += 1
+                        logger.warning(
+                            f"Empty message detected ({consecutive_empty_count}/{MAX_CONSECUTIVE_EMPTY})"
+                        )
+                        # Skip yielding empty messages
+                        if consecutive_empty_count >= MAX_CONSECUTIVE_EMPTY:
+                            logger.warning(
+                                f"Terminating due to {MAX_CONSECUTIVE_EMPTY} consecutive empty messages"
+                            )
+                            # Create a TaskResult to signal completion
+                            early_result = TaskResult(
+                                messages=[],
+                                stop_reason=f"Auto-terminated: {MAX_CONSECUTIVE_EMPTY} consecutive empty messages detected"
+                            )
+                            yield TeamResult(
+                                task_result=early_result,
+                                usage="",
+                                duration=time.time() - start_time
+                            )
+                            break
+                        continue  # Skip yielding this empty message
+                    else:
+                        # Reset counter on non-empty message
+                        consecutive_empty_count = 0
+                        yield message
 
                 # Check for any LLM events
                 while not llm_event_logger.events.empty():
@@ -159,18 +230,26 @@ class TeamManager:
         cancellation_token: Optional[CancellationToken] = None,
         env_vars: Optional[List[EnvironmentVariable]] = None,
     ) -> TeamResult:
-        """Run team synchronously"""
-        start_time = time.time()
-        team = None
+        """Run team synchronously (uses run_stream internally for empty message protection)"""
+        result: Optional[TeamResult] = None
 
-        try:
-            team = await self._create_team(team_config, input_func, env_vars)
-            result = await team.run(task=task, cancellation_token=cancellation_token)
+        # Use run_stream internally to get empty message protection
+        async for message in self.run_stream(
+            task=task,
+            team_config=team_config,
+            input_func=input_func,
+            cancellation_token=cancellation_token,
+            env_vars=env_vars,
+        ):
+            if isinstance(message, TeamResult):
+                result = message
 
-            return TeamResult(task_result=result, usage="", duration=time.time() - start_time)
+        if result is None:
+            # Fallback if no TeamResult was yielded (shouldn't happen normally)
+            result = TeamResult(
+                task_result=TaskResult(messages=[], stop_reason="No result returned"),
+                usage="",
+                duration=0.0
+            )
 
-        finally:
-            if team and hasattr(team, "_participants"):
-                for agent in team._participants:  # type: ignore
-                    if hasattr(agent, "close"):
-                        await agent.close()
+        return result

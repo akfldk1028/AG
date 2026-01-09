@@ -60,3 +60,7 @@ autogen_source/python/packages/autogen-studio/frontend/public/
 test_*.py
 create_*.py
 update_*.py
+
+# Temporary files
+start_server.py
+*.bak

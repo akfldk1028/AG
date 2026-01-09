@@ -1,0 +1,32 @@
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "description": "선택자 오케스트레이션 팀 - 질문 유형별 전문가 라우팅",
+  "label": "Selector Team (Template)",
+  "config": {
+    "participants": [
+      {
+        "name": "coordinator",
+        "type": "AssistantAgent"
+      },
+      {
+        "name": "history_expert",
+        "type": "AssistantAgent"
+      },
+      {
+        "name": "science_expert",
+        "type": "AssistantAgent"
+      },
+      {
+        "name": "math_expert",
+        "type": "AssistantAgent"
+      }
+    ],
+    "selector_prompt": "역할 선택 프롬프트...",
+    "model_client": {
+      "model": "gpt-4o-mini"
+    }
+  },
+  "_note": "이 템플릿은 AutoGen이 설치된 환경에서 cohub_loader.py를 실행하여 완전한 버전을 생성하세요."
+}

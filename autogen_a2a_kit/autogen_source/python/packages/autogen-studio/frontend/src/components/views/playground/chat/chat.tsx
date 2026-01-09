@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Button, message, Tooltip } from "antd";
+import { Button, message, Tooltip, Dropdown } from "antd";
+import type { MenuProps } from "antd";
 import { convertFilesToBase64, getServerUrl } from "../../../utils/utils";
 import { IStatus } from "../../../types/app";
 import {
@@ -25,10 +26,20 @@ import {
   MessagesSquare,
   SplitSquareHorizontal,
   X,
+  Network,
+  GitBranch,
+  Activity,
+  ArrowRight,
+  Circle,
+  Shuffle,
+  ChevronDown,
 } from "lucide-react";
+import AgentFlow from "./agentflow/agentflow";
 import SessionDropdown from "./sessiondropdown";
 import { RcFile } from "antd/es/upload";
 import { useSettingsStore } from "../../settings/store";
+import { getPatternById, getPatternByProvider, getPatternSelectorPrompt, PATTERN_LIBRARY, PatternDefinition } from "./agentflow/patterns/pattern-schema";
+import { applyPatternComplete, validateTeamForExecution } from "./team-runtime";
 const logo = require("../../../../images/landing/welcome.svg").default;
 
 interface ChatViewProps {
@@ -71,6 +82,32 @@ export default function ChatView({
     source: string;
   } | null>(null);
 
+  // View mode: "pattern" shows team structure, "execution" shows actual message flow
+  const [viewMode, setViewMode] = React.useState<"pattern" | "execution">("pattern");
+
+  // Pattern selection from schema (all 8 patterns available!)
+  const [selectedPatternId, setSelectedPatternId] = React.useState<string>("sequential");
+
+  // Get current pattern definition from schema
+  const selectedPattern = React.useMemo(() =>
+    getPatternById(selectedPatternId) || PATTERN_LIBRARY[0],
+    [selectedPatternId]
+  );
+
+  // Pattern menu items generated from schema (not hardcoded!)
+  const patternMenuItems: MenuProps["items"] = React.useMemo(() =>
+    PATTERN_LIBRARY.map((pattern: PatternDefinition) => ({
+      key: pattern.id,
+      icon: pattern.id === "sequential" ? <ArrowRight className="w-4 h-4" /> :
+            pattern.id === "selector" ? <Circle className="w-4 h-4" /> :
+            pattern.id === "swarm" ? <Shuffle className="w-4 h-4" /> :
+            pattern.id === "reflection" ? <Activity className="w-4 h-4" /> :
+            <Network className="w-4 h-4" />,
+      label: pattern.name,
+    })),
+    []
+  );
+
   // Context and config
   const { user } = React.useContext(appContext);
   // const { session, sessions } = useConfigStore();
@@ -79,6 +116,41 @@ export default function ChatView({
   );
   const [teamConfig, setTeamConfig] =
     React.useState<Component<TeamConfig> | null>(null);
+
+  // Get modified teamConfig based on selected pattern using modular team-runtime
+  // Updated to use applyPatternComplete for full configuration
+  const effectiveTeamConfig = React.useMemo((): Component<TeamConfig> | null => {
+    if (!selectedPatternId) return teamConfig;
+
+    // Use the enhanced applyPatternComplete function from team-runtime
+    // This ensures model_client and termination_condition are properly set
+    const result = applyPatternComplete(teamConfig, selectedPatternId);
+
+    // ===== DEBUGGING: Provider Change Log =====
+    console.log("🔄 PATTERN APPLIED:", {
+      patternId: selectedPatternId,
+      originalProvider: teamConfig?.provider,
+      newProvider: result.teamConfig?.provider,
+      providerChanged: teamConfig?.provider !== result.teamConfig?.provider,
+      isNewTeam: result.isNewTeam,
+    });
+
+    // Log any warnings during development
+    if (result.warnings.length > 0) {
+      console.log("Pattern configuration warnings:", result.warnings);
+    }
+
+    // Validate the resulting config
+    const validation = validateTeamForExecution(result.teamConfig);
+    if (!validation.valid) {
+      console.warn("Team validation errors:", validation.errors);
+    }
+    if (validation.warnings.length > 0) {
+      console.log("Team validation warnings:", validation.warnings);
+    }
+
+    return result.teamConfig;
+  }, [teamConfig, selectedPatternId]);
 
   // Get settings for timeout configuration
   const { uiSettings } = useSettingsStore();
@@ -142,6 +214,17 @@ export default function ChatView({
         });
     }
   }, [session]);
+
+  // Sync selectedPatternId with loaded teamConfig's provider
+  // This ensures the UI pattern matches the actual team configuration
+  React.useEffect(() => {
+    if (teamConfig?.provider) {
+      const detectedPattern = getPatternByProvider(teamConfig.provider);
+      if (detectedPattern) {
+        setSelectedPatternId(detectedPattern.id);
+      }
+    }
+  }, [teamConfig]);
 
   React.useEffect(() => {
     setTimeout(() => {
@@ -420,7 +503,7 @@ export default function ChatView({
       inputTimeoutRef.current = null;
     }
 
-    if (!session?.id || !teamConfig) {
+    if (!session?.id || !effectiveTeamConfig) {
       setLoading(false);
       return;
     }
@@ -497,13 +580,13 @@ export default function ChatView({
     });
 
     socket.onopen = () => {
-      // Send start message with teamConfig
+      // Send start message with effectiveTeamConfig (modified based on selected pattern)
       socket.send(
         JSON.stringify({
           type: "start",
           task: query,
           files: files,
-          team_config: teamConfig,
+          team_config: effectiveTeamConfig,
         })
       );
     };
@@ -579,6 +662,62 @@ export default function ChatView({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
+          {/* Pattern Selector Dropdown - All patterns from schema */}
+          {teamConfig && (
+            <Dropdown
+              menu={{
+                items: patternMenuItems,
+                onClick: ({ key }) => setSelectedPatternId(key),
+                selectedKeys: [selectedPatternId],
+              }}
+              trigger={["click"]}
+            >
+              <Tooltip title={selectedPattern?.description || "Select collaboration pattern"}>
+                <button className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs bg-secondary hover:bg-tertiary transition-colors border border-secondary">
+                  {selectedPatternId === "sequential" && <ArrowRight className="w-3.5 h-3.5" />}
+                  {selectedPatternId === "selector" && <Circle className="w-3.5 h-3.5" />}
+                  {selectedPatternId === "swarm" && <Shuffle className="w-3.5 h-3.5" />}
+                  {!["sequential", "selector", "swarm"].includes(selectedPatternId) && <Network className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">
+                    {selectedPattern?.name?.split(" ")[0] || "Pattern"}
+                  </span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </Tooltip>
+            </Dropdown>
+          )}
+
+          {/* View Mode Toggle Button */}
+          {teamConfig && (
+            <div className="flex items-center bg-secondary rounded-md p-0.5">
+              <Tooltip title="Pattern View - Shows team collaboration structure">
+                <button
+                  onClick={() => setViewMode("pattern")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    viewMode === "pattern"
+                      ? "bg-accent text-white"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                >
+                  <GitBranch className="w-3.5 h-3.5" />
+                  Pattern
+                </button>
+              </Tooltip>
+              <Tooltip title="Execution View - Shows actual message flow">
+                <button
+                  onClick={() => setViewMode("execution")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    viewMode === "execution"
+                      ? "bg-accent text-white"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  Execution
+                </button>
+              </Tooltip>
+            </div>
+          )}
           {!isCompareMode && !isSecondaryView && showCompareButton && (
             <Button
               type="text"
@@ -611,41 +750,65 @@ export default function ChatView({
           <>
             {teamConfig && (
               <>
-                {/* Existing Runs */}
+                {/* Existing Runs - use effectiveTeamConfig to show selected pattern visualization */}
                 {existingRuns.map((run, index) => (
                   <RunView
-                    teamConfig={teamConfig}
-                    key={run.id + "-review-" + index}
+                    teamConfig={effectiveTeamConfig || teamConfig}
+                    key={run.id + "-review-" + index + "-" + selectedPatternId}
                     run={run}
                     isFirstRun={index === 0}
+                    viewMode={viewMode}
+                    selectedPatternId={selectedPatternId}
                   />
                 ))}
 
-                {/* Current Run */}
-                {currentRun && (
+                {/* Current Run - use effectiveTeamConfig (being executed with selected pattern) */}
+                {currentRun && effectiveTeamConfig && (
                   <RunView
                     run={currentRun}
-                    teamConfig={teamConfig}
+                    teamConfig={effectiveTeamConfig}
                     onInputResponse={handleInputResponse}
                     onCancel={handleCancel}
                     isFirstRun={existingRuns.length === 0}
                     streamingContent={streamingContent}
+                    viewMode={viewMode}
+                    selectedPatternId={selectedPatternId}
                   />
                 )}
 
-                {/* No existing runs */}
+                {/* No existing runs - Show team pattern preview */}
 
-                {!currentRun && existingRuns.length === 0 && (
-                  <div className="flex items-center justify-center h-[80%]">
-                    <div className="text-center">
-                      <MessagesSquare
+                {!currentRun && existingRuns.length === 0 && effectiveTeamConfig && (
+                  <div className="flex flex-col items-center justify-center h-[80%]">
+                    <div className="text-center mb-4">
+                      <Network
                         strokeWidth={1}
-                        className="w-64 h-64 mb-4 inline-block"
+                        className="w-12 h-12 mb-2 inline-block text-secondary"
                       />
-                      <div className="  font-medium mb-2">Start a new task</div>
-                      <div className="text-secondary text-sm">
-                        Enter a task to get started
+                      <div className="font-medium mb-1">
+                        {selectedPattern?.name || "Pattern"}
                       </div>
+                      <div className="text-secondary text-sm">
+                        Enter a task to start the conversation
+                      </div>
+                    </div>
+
+                    {/* Team Pattern Preview */}
+                    <div className="w-full max-w-2xl h-[350px] bg-tertiary rounded-lg border border-secondary">
+                      <AgentFlow
+                        teamConfig={effectiveTeamConfig}
+                        run={{
+                          id: 0,
+                          created_at: new Date().toISOString(),
+                          status: "created",
+                          messages: [],
+                          task: [],
+                          team_result: null,
+                          error_message: undefined,
+                        }}
+                        viewMode="pattern"
+                        selectedPatternId={selectedPatternId}
+                      />
                     </div>
                   </div>
                 )}
@@ -673,7 +836,7 @@ export default function ChatView({
           </>
         </div>
 
-        {session && teamConfig && (
+        {session && effectiveTeamConfig && (
           <div className="flex-shrink-0">
             <ChatInput
               onSubmit={runTask}

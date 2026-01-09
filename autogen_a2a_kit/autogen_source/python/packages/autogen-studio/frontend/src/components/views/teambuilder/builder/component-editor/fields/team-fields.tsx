@@ -1,6 +1,6 @@
 import React, { useCallback } from "react";
 import { Input, Button, Collapse } from "antd";
-import { Edit, Timer, User, Settings } from "lucide-react";
+import { Edit, Timer, User, Settings, Network } from "lucide-react";
 import {
   Component,
   TeamConfig,
@@ -14,6 +14,7 @@ import {
   isRoundRobinTeam,
   isSwarmTeam,
 } from "../../../../../types/guards";
+import { PatternPreview } from "./pattern-preview";
 
 const { TextArea } = Input;
 
@@ -79,10 +80,20 @@ export const TeamFields: React.FC<TeamFieldsProps> = ({
 
   return (
     <Collapse
-      defaultActiveKey={["details", "configuration"]}
+      defaultActiveKey={["pattern", "details", "configuration"]}
       className="border-0"
       expandIconPosition="end"
       items={[
+        {
+          key: "pattern",
+          label: (
+            <div className="flex items-center gap-2">
+              <Network className="w-4 h-4 text-purple-500" />
+              <span className="font-medium">Pattern Diagram</span>
+            </div>
+          ),
+          children: <PatternPreview component={component} />,
+        },
         {
           key: "details",
           label: (

@@ -125,16 +125,16 @@ if __name__ == "__main__":
     print("Calculator Agent - A2A Server")
     print("=" * 50)
     print("This agent provides calculation services.")
-    print("A2A server starting on port 8003...")
-    print("Agent Card URL: http://localhost:8003/.well-known/agent.json")
+    print("A2A server starting on port 8006...")
+    print("Agent Card URL: http://localhost:8006/.well-known/agent.json")
     print("=" * 50)
 
     # A2A 앱 생성
     a2a_app = to_a2a(
         calculator_agent,
-        port=8003,
+        port=8006,
         host="127.0.0.1"
     )
 
     # uvicorn으로 서버 실행
-    uvicorn.run(a2a_app, host="127.0.0.1", port=8003)
+    uvicorn.run(a2a_app, host="127.0.0.1", port=8006)

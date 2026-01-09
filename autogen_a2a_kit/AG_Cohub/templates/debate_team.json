@@ -1,0 +1,25 @@
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "description": "토론 팀 - 찬성/반대/심판 구조",
+  "label": "Debate Team (Template)",
+  "config": {
+    "participants": [
+      {
+        "name": "advocate",
+        "role": "지지자"
+      },
+      {
+        "name": "critic",
+        "role": "비평가"
+      },
+      {
+        "name": "judge",
+        "role": "심판"
+      }
+    ],
+    "selector_prompt": "토론 규칙에 따른 발언자 선택..."
+  },
+  "_note": "이 템플릿은 AutoGen이 설치된 환경에서 cohub_loader.py를 실행하여 완전한 버전을 생성하세요."
+}

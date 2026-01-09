@@ -1,0 +1,271 @@
+{
+  "id": "cohub_collaboration_patterns",
+  "name": "AG_Cohub - Multi-Agent Collaboration Patterns",
+  "url": null,
+  "metadata": {
+    "author": "AG_Cohub",
+    "created_at": "2026-01-08T23:51:37.250714",
+    "updated_at": "2026-01-08T23:51:37.250714",
+    "version": "1.0.0",
+    "description": "멀티 에이전트 협업 패턴 모음 - Sequential, Selector, Handoff, Debate, Reflection 등",
+    "tags": [
+      "collaboration",
+      "patterns",
+      "multi-agent",
+      "korean"
+    ],
+    "license": "MIT",
+    "category": "collaboration"
+  },
+  "components": {
+    "teams": [
+      {
+        "provider": "autogen_agentchat.teams.RoundRobinGroupChat",
+        "component_type": "team",
+        "version": 1,
+        "label": "Sequential Team (순차적 협업)",
+        "description": "에이전트를 미리 정의된 선형 순서로 연결합니다. 각 에이전트는 이전 에이전트의 출력을 처리하여 전문화된 변환 파이프라인을 만듭니다.",
+        "config": {
+          "participants": [
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "researcher",
+                "description": "리서치 담당 - 정보 수집 및 조사",
+                "system_message": "당신은 리서처입니다. 주어진 주제에 대해 조사하고 핵심 정보를 수집하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "writer",
+                "description": "작가 담당 - 콘텐츠 작성",
+                "system_message": "당신은 작가입니다. 리서처가 수집한 정보를 바탕으로 글을 작성하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "reviewer",
+                "description": "리뷰어 담당 - 검토 및 피드백",
+                "system_message": "당신은 리뷰어입니다. 작성된 글을 검토하세요. 완료되면 TERMINATE라고 말하세요."
+              }
+            }
+          ],
+          "termination_condition": {
+            "provider": "autogen_agentchat.conditions.MaxMessageTermination",
+            "component_type": "termination",
+            "config": {
+              "max_messages": 10
+            }
+          }
+        }
+      },
+      {
+        "provider": "autogen_agentchat.teams.SelectorGroupChat",
+        "component_type": "team",
+        "version": 1,
+        "label": "Selector Team (전문가 라우팅)",
+        "description": "중앙 선택자 에이전트가 작업을 분석하고 가장 적합한 전문 에이전트에게 라우팅합니다. 선택자는 컨텍스트와 에이전트 설명을 사용하여 라우팅 결정을 내립니다.",
+        "config": {
+          "participants": [
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "coordinator",
+                "description": "일반적인 질문 및 조율 담당",
+                "system_message": "당신은 코디네이터입니다. 전문가가 없는 일반적인 질문에 답하고, 대화를 조율하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "history_expert",
+                "description": "역사 관련 질문 전문가",
+                "system_message": "당신은 역사 전문가입니다. 역사 관련 질문에 정확하고 상세하게 답변하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "science_expert",
+                "description": "과학 관련 질문 전문가",
+                "system_message": "당신은 과학 전문가입니다. 과학 관련 질문에 정확하고 상세하게 답변하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "math_expert",
+                "description": "수학 문제 해결 전문가",
+                "system_message": "당신은 수학 전문가입니다. 수학 문제를 단계별로 풀어서 설명하세요."
+              }
+            }
+          ],
+          "selector_prompt": "다음 역할들이 있습니다: {roles}\n\n대화 내용을 읽고 다음 발언에 가장 적합한 역할을 선택하세요:\n- 역사 관련: history_expert\n- 과학 관련: science_expert\n- 수학 관련: math_expert\n- 기타: coordinator\n\n{history}\n\n역할 이름만 반환하세요."
+        }
+      },
+      {
+        "provider": "autogen_agentchat.teams.Swarm",
+        "component_type": "team",
+        "version": 1,
+        "label": "Handoff Team (고객 서비스)",
+        "description": "에이전트가 작업 요구사항에 따라 다른 에이전트에게 동적으로 제어권을 이전합니다. 각 에이전트가 언제, 누구에게 위임할지 결정하여 유연한 워크플로우 전환을 가능하게 합니다.",
+        "config": {
+          "participants": [
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "triage_agent",
+                "description": "고객 문의 분류",
+                "system_message": "당신은 고객 문의 분류 담당입니다. 문의 유형을 파악하고 적절한 담당자에게 전달하세요.",
+                "handoffs": [
+                  "support_agent",
+                  "sales_agent",
+                  "refund_agent"
+                ]
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "support_agent",
+                "description": "기술 지원",
+                "system_message": "당신은 기술 지원 담당입니다. 기술적인 문제를 해결하세요.",
+                "handoffs": [
+                  "triage_agent"
+                ]
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "sales_agent",
+                "description": "영업 담당",
+                "system_message": "당신은 영업 담당입니다. 제품 문의와 구매 관련 질문에 답하세요.",
+                "handoffs": [
+                  "triage_agent"
+                ]
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "refund_agent",
+                "description": "환불 담당",
+                "system_message": "당신은 환불 담당입니다. 환불 요청을 처리하세요.",
+                "handoffs": [
+                  "triage_agent"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "provider": "autogen_agentchat.teams.SelectorGroupChat",
+        "component_type": "team",
+        "version": 1,
+        "label": "Debate Team (찬반 토론)",
+        "description": "서로 다른 관점이나 역할을 가진 여러 에이전트가 구조화된 토론에 참여합니다. 서로의 추론에 도전하여 적대적 협력을 통해 더 강건한 결론에 도달합니다.",
+        "config": {
+          "participants": [
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "advocate",
+                "description": "제안을 지지하고 장점을 강조",
+                "system_message": "당신은 제안의 지지자입니다. 장점과 기회를 강조하고, 반대 의견에 논리적으로 반박하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "critic",
+                "description": "비판적 분석과 리스크 지적",
+                "system_message": "당신은 비평가입니다. 약점, 리스크, 잠재적 문제를 지적하고, 지지자의 주장에 도전하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "judge",
+                "description": "중립적 심판 및 최종 결정",
+                "system_message": "당신은 중립적 심판입니다. 양측의 논증을 평가하고 균형 잡힌 최종 판단을 내리세요. 결론이 나면 TERMINATE라고 말하세요."
+              }
+            }
+          ],
+          "selector_prompt": "토론 참가자: {roles}\n\n토론 규칙:\n1. advocate와 critic이 번갈아 발언\n2. 충분한 토론 후 judge가 결론\n\n{history}\n\n역할 이름만 반환하세요."
+        }
+      },
+      {
+        "provider": "autogen_agentchat.teams.RoundRobinGroupChat",
+        "component_type": "team",
+        "version": 1,
+        "label": "Reflection Team (품질 개선)",
+        "description": "에이전트가 출력을 생성한 후, 비평 에이전트(또는 반성 모드의 동일 에이전트)가 검토하고 피드백을 제공합니다. 원래 에이전트는 비평을 바탕으로 반복적으로 개선합니다.",
+        "config": {
+          "participants": [
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "generator",
+                "description": "콘텐츠 생성 담당",
+                "system_message": "주어진 작업을 수행하고 결과를 생성하세요. 비평을 받으면 피드백을 반영하여 개선된 버전을 제공하세요."
+              }
+            },
+            {
+              "provider": "autogen_agentchat.agents.AssistantAgent",
+              "component_type": "agent",
+              "config": {
+                "name": "critic",
+                "description": "품질 검토 및 피드백",
+                "system_message": "생성된 결과를 검토하고 구체적인 개선점을 제시하세요. 문제가 없으면 'APPROVED'라고 말하세요."
+              }
+            }
+          ],
+          "termination_condition": {
+            "provider": "autogen_agentchat.conditions.OrTermination",
+            "component_type": "termination",
+            "config": {
+              "conditions": [
+                {
+                  "provider": "autogen_agentchat.conditions.TextMentionTermination",
+                  "config": {
+                    "text": "APPROVED"
+                  }
+                },
+                {
+                  "provider": "autogen_agentchat.conditions.MaxMessageTermination",
+                  "config": {
+                    "max_messages": 6
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "agents": [],
+    "models": [],
+    "tools": [],
+    "terminations": [],
+    "workbenches": []
+  }
+}

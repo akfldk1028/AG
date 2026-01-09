@@ -155,13 +155,14 @@ def main():
     print(f"\n[1] Agent Card 가져오기: {agent_card_url}")
     agent_card = get_agent_card(agent_card_url)
 
-    print(f"    이름: {agent_card.get('name', 'N/A')}")
+    print(f"    이름: {agent_
+    card.get('name', 'N/A')}")
     print(f"    설명: {agent_card.get('description', 'N/A')}")
     skills = agent_card.get('skills', [])
     if skills:
         print(f"    스킬: {[s.get('name') for s in skills]}")
 
-    # 2. 기본 URL 추출
+    # 2. 기본 Uh 하고잇는거맞지 RL 추출
     base_url = extract_base_url(agent_card_url)
     print(f"\n[2] A2A 서버 URL: {base_url}")
 
