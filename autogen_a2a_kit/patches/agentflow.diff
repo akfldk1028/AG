@@ -1,0 +1,128 @@
+﻿diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/agentflow/agentflow.tsx b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/agentflow/agentflow.tsx
+index 5dc1888..65eb4d6 100644
+--- a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/agentflow/agentflow.tsx
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/agentflow/agentflow.tsx
+@@ -31,10 +31,18 @@ import { CustomEdge, CustomEdgeData } from "./edge";
+ import { useConfigStore } from "../../../../../hooks/store";
+ import { AgentFlowToolbar } from "./toolbar";
+ import { EdgeMessageModal } from "./edgemessagemodal";
++import {
++  generatePatternLayoutV2,
++  NODE_DIMENSIONS,
++  getPatternType,
++  PatternDefinition,
++} from "./patterns";
+ 
+ interface AgentFlowProps {
+   teamConfig: Component<TeamConfig>;
+   run: Run;
++  viewMode?: "pattern" | "execution";
++  selectedPatternId?: string;  // Override pattern for visualization
+ }
+ 
+ interface MessageSequence {
+@@ -50,12 +58,6 @@ interface BidirectionalPattern {
+   reverse: MessageSequence;
+ }
+ 
+-const NODE_DIMENSIONS = {
+-  default: { width: 170, height: 100 },
+-  end: { width: 170, height: 80 },
+-  task: { width: 170, height: 100 },
+-};
+-
+ const getLayoutedElements = (
+   nodes: Node[],
+   edges: CustomEdge[],
+@@ -220,7 +222,7 @@ const edgeTypes = {
+   custom: CustomEdge,
+ };
+ 
+-const AgentFlow: React.FC<AgentFlowProps> = ({ teamConfig, run }) => {
++const AgentFlow: React.FC<AgentFlowProps> = ({ teamConfig, run, viewMode = "pattern", selectedPatternId }) => {
+   const { fitView } = useReactFlow();
+   const [nodes, setNodes] = useState<Node[]>([]);
+   const [edges, setEdges] = useState<CustomEdge[]>([]);
+@@ -485,24 +487,68 @@ const AgentFlow: React.FC<AgentFlowProps> = ({ teamConfig, run }) => {
+   }, [isFullscreen, handleToggleFullscreen]);
+ 
+   useEffect(() => {
+-    const { nodes: newNodes, edges: newEdges } = processMessages(
+-      run.messages.map((m) => m.config)
+-    );
+-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+-      newNodes,
+-      newEdges,
+-      settings.direction
++    let newNodes: Node[];
++    let newEdges: CustomEdge[];
++
++    // Determine whether to show pattern or execution layout
++    const showPatternLayout = viewMode === "pattern" || run.messages.length === 0;
++
++    // Get participated agents from messages for highlighting
++    const participatedAgents = new Set<string>();
++    run.messages.forEach((m) => {
++      if (m.config?.source) {
++        participatedAgents.add(m.config.source);
++      }
++    });
++
++    // Use new V2 pattern layout generator with pattern schema
++    const patternResult = generatePatternLayoutV2(
++      teamConfig,
++      participatedAgents,
++      run,
++      selectedPatternId  // Override pattern ID if provided
+     );
+ 
+-    setNodes(layoutedNodes);
+-    setEdges(layoutedEdges);
++    // Get the detected/selected pattern definition
++    const patternDef = patternResult.patternDef;
+ 
+-    if (run.messages.length > 0) {
+-      setTimeout(() => {
+-        fitView({ padding: 0.2, duration: 200 });
+-      }, 50);
++    // Determine if custom layout should be used (hub-spoke, mesh, ring, fork-join, tree)
++    // Chain layout uses Dagre for sequential positioning
++    const useCustomLayout = showPatternLayout && patternDef &&
++      patternDef.visual.layout !== "chain";
++
++    if (showPatternLayout) {
++      // Show pattern-based layout (team structure)
++      newNodes = patternResult.nodes;
++      newEdges = patternResult.edges as CustomEdge[];
++    } else {
++      // Show execution flow (actual message sequence)
++      const result = processMessages(run.messages.map((m) => m.config));
++      newNodes = result.nodes;
++      newEdges = result.edges;
+     }
+-  }, [run.messages, processMessages, settings.direction, run.status, fitView]);
++
++    // Only use Dagre layout for sequential patterns or execution mode
++    // Hub-spoke and mesh patterns have their own positioning
++    if (useCustomLayout) {
++      // Use the positions set by pattern generators directly
++      setNodes(newNodes);
++      setEdges(newEdges);
++    } else {
++      // Use Dagre for sequential/execution layouts
++      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
++        newNodes,
++        newEdges,
++        settings.direction
++      );
++      setNodes(layoutedNodes);
++      setEdges(layoutedEdges);
++    }
++
++    setTimeout(() => {
++      fitView({ padding: 0.2, duration: 200 });
++    }, 50);
++  }, [run.messages, processMessages, settings.direction, run.status, fitView, teamConfig, viewMode, selectedPatternId]);
+ 
+   const reactFlowProps = {
+     nodes,

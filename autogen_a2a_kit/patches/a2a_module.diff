@@ -1,0 +1,307 @@
+﻿diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/agent.py b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/agent.py
+index e8b91fb..6e17a7c 100644
+--- a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/agent.py
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/agent.py
+@@ -3,6 +3,7 @@
+ A2A (Agent-to-Agent) ?꾨줈?좎퐳???듯빐 ?몃? ?먯씠?꾪듃? ?듭떊?섎뒗 ?섑띁 ?먯씠?꾪듃.
+ AutoGen?????吏곸젒 ?먯씠?꾪듃濡?異붽??????덉뒿?덈떎.
+ """
++import logging
+ import uuid
+ from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence
+ 
+@@ -17,6 +18,8 @@
+ from autogen_core import CancellationToken, Component, ComponentModel
+ from pydantic import BaseModel, Field
+ 
++logger = logging.getLogger(__name__)
++
+ 
+ class A2AAgentConfig(BaseModel):
+     """A2A Agent ?ㅼ젙"""
+@@ -65,6 +68,9 @@ def __init__(
+         self._timeout = timeout
+         self._skills = skills or []
+         self._session_id = str(uuid.uuid4())
++        # 留덉?留?而⑦뀓?ㅽ듃 ???(鍮?硫붿떆吏 臾몄젣 ?닿껐)
++        self._last_query: Optional[str] = None
++        self._message_history: List[str] = []
+ 
+     @property
+     def produced_message_types(self) -> Sequence[type[ChatMessage]]:
+@@ -95,12 +101,37 @@ async def _call_a2a(self, query: str) -> str:
+                 )
+                 result = response.json()
+ 
+-                # ?묐떟?먯꽌 ?띿뒪??異붿텧
+-                if "result" in result and "artifacts" in result["result"]:
+-                    for artifact in result["result"]["artifacts"]:
+-                        for part in artifact.get("parts", []):
+-                            if "text" in part:
+-                                return part["text"]
++                # ?묐떟?먯꽌 ?띿뒪??異붿텧 - ?щ윭 ?뺤떇 吏??+                if "result" in result:
++                    res = result["result"]
++
++                    # ?뺤떇 1: artifacts (?쒖? A2A ?묐떟)
++                    if "artifacts" in res:
++                        for artifact in res["artifacts"]:
++                            for part in artifact.get("parts", []):
++                                if "text" in part:
++                                    return part["text"]
++
++                    # ?뺤떇 2: status.message (Google ADK ?묐떟 ?뺤떇)
++                    # ?먯씠?꾪듃 ?묐떟? history媛 ?꾨땶 status.message???덉쓬!
++                    if "status" in res and "message" in res["status"]:
++                        status_msg = res["status"]["message"]
++                        for part in status_msg.get("parts", []):
++                            text = part.get("text")
++                            if text:
++                                return text
++
++                    # ?뺤떇 3: history (???湲곕줉 ?뺤떇 - fallback)
++                    if "history" in res:
++                        # 留덉?留?assistant/agent 硫붿떆吏?먯꽌 ?띿뒪??異붿텧 (user ?쒖쇅)
++                        for msg in reversed(res["history"]):
++                            role = msg.get("role", "")
++                            # user媛 ?꾨땶 ?묐떟留?泥섎━ (agent, assistant ??
++                            if role and role != "user":
++                                for part in msg.get("parts", []):
++                                    text = part.get("text")
++                                    if text:
++                                        return text
+ 
+                 if "error" in result:
+                     return f"A2A ?먮윭: {result['error']}"
+@@ -120,23 +151,42 @@ async def on_messages(
+         """硫붿떆吏 泥섎━ - 留덉?留?硫붿떆吏瑜?A2A ?쒕쾭濡??꾨떖"""
+         # 留덉?留?硫붿떆吏 異붿텧
+         if not messages:
+-            return Response(
+-                chat_message=TextMessage(
+-                    content="硫붿떆吏媛 ?놁뒿?덈떎.",
+-                    source=self.name
++            # 硫붿떆吏媛 ?놁쑝硫?留덉?留?而⑦뀓?ㅽ듃 ?ъ슜 ?쒕룄
++            if self._last_query:
++                logger.info(
++                    f"A2AAgent '{self.name}' received empty messages - using last context: '{self._last_query[:50]}...'"
+                 )
+-            )
++                # 留덉?留?荑쇰━濡?A2A ?몄텧 (媛숈? 荑쇰━?????異붽? ?뺣낫 ?붿껌)
++                response_text = await self._call_a2a(
++                    f"?댁쟾 吏덈Ц?????異붽? ?뺣낫媛 ?덈굹?? (?댁쟾 吏덈Ц: {self._last_query})"
++                )
++            else:
++                logger.warning(
++                    f"A2AAgent '{self.name}' received empty messages and no context - returning pass"
++                )
++                return Response(
++                    chat_message=TextMessage(
++                        content=f"[{self.name}] 而⑦뀓?ㅽ듃媛 ?놁뼱 ?湲?以묒엯?덈떎.",
++                        source=self.name
++                    )
++                )
++        else:
++            last_message = messages[-1]
+ 
+-        last_message = messages[-1]
++            # 硫붿떆吏 ?댁슜 異붿텧
++            if isinstance(last_message, TextMessage):
++                query = last_message.content
++            else:
++                query = str(last_message)
+ 
+-        # 硫붿떆吏 ?댁슜 異붿텧
+-        if isinstance(last_message, TextMessage):
+-            query = last_message.content
+-        else:
+-            query = str(last_message)
++            # 而⑦뀓?ㅽ듃 ???+            self._last_query = query
++            self._message_history.append(query)
++            if len(self._message_history) > 10:  # 理쒕? 10媛?硫붿떆吏留??좎?
++                self._message_history = self._message_history[-10:]
+ 
+-        # A2A ?몄텧
+-        response_text = await self._call_a2a(query)
++            # A2A ?몄텧
++            response_text = await self._call_a2a(query)
+ 
+         return Response(
+             chat_message=TextMessage(
+@@ -158,6 +208,22 @@ async def on_messages_stream(
+     async def on_reset(self, cancellation_token: CancellationToken) -> None:
+         """?먯씠?꾪듃 ?곹깭 由ъ뀑"""
+         self._session_id = str(uuid.uuid4())
++        self._last_query = None
++        self._message_history.clear()
++
++    async def save_state(self) -> Mapping[str, Any]:
++        """?먯씠?꾪듃 ?곹깭 ???""
++        return {
++            "session_id": self._session_id,
++            "last_query": self._last_query,
++            "message_history": self._message_history.copy(),
++        }
++
++    async def load_state(self, state: Mapping[str, Any]) -> None:
++        """?먯씠?꾪듃 ?곹깭 濡쒕뱶"""
++        self._session_id = state.get("session_id", str(uuid.uuid4()))
++        self._last_query = state.get("last_query")
++        self._message_history = list(state.get("message_history", []))
+ 
+     def _to_config(self) -> A2AAgentConfig:
+         """?ㅼ젙?쇰줈 蹂??""
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/registry.py b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/registry.py
+index af3afaf..abf651d 100644
+--- a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/registry.py
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/autogenstudio/a2a/registry.py
+@@ -53,15 +53,79 @@ def _get_agent_path(self, name: str) -> Path:
+         return self._base_dir / f"{safe_name}.json"
+ 
+     def list_agents(self) -> List[RegisteredAgent]:
+-        """?깅줉??紐⑤뱺 ?먯씠?꾪듃 紐⑸줉"""
++        """?깅줉??紐⑤뱺 ?먯씠?꾪듃 紐⑸줉 (a2a_demo/ ?먮룞 ?ㅼ틪 ?ы븿)"""
++        import re
++
+         agents = []
++        seen_names = set()
++
++        # 1. 湲곗〈 ?덉??ㅽ듃由??뚯씪?먯꽌 濡쒕뱶
+         for file in self._base_dir.glob("*.json"):
+             try:
+                 with open(file, "r", encoding="utf-8") as f:
+                     data = json.load(f)
+-                    agents.append(RegisteredAgent(**data))
++                    agent = RegisteredAgent(**data)
++                    agents.append(agent)
++                    seen_names.add(agent.name)
+             except Exception as e:
+                 print(f"Failed to load {file}: {e}")
++
++        # 2. a2a_demo/ ?대뜑 ?먮룞 ?ㅼ틪 (NEW!)
++        a2a_demo_paths = [
++            Path(__file__).parent.parent.parent.parent.parent.parent / "a2a_demo",
++            Path(__file__).parent.parent.parent.parent.parent.parent.parent / "a2a_demo",
++            Path("D:/Data/22_AG/autogen_a2a_kit/a2a_demo"),
++        ]
++
++        a2a_demo_path = None
++        for path in a2a_demo_paths:
++            if path.exists() and path.is_dir():
++                a2a_demo_path = path
++                break
++
++        if a2a_demo_path:
++            skip_dirs = {"action", "root_agent", "remote_agent", "remote_prime_checker", "__pycache__"}
++
++            for agent_dir in a2a_demo_path.iterdir():
++                if not agent_dir.is_dir() or agent_dir.name in skip_dirs:
++                    continue
++
++                agent_py = agent_dir / "agent.py"
++                if not agent_py.exists():
++                    continue
++
++                try:
++                    content = agent_py.read_text(encoding="utf-8")
++
++                    # Parse agent info using regex
++                    name_match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', content)
++                    desc_match = re.search(r'description\s*=\s*["\']([^"\']+)["\']', content)
++                    port_match = re.search(r'port\s*[=:]\s*(\d+)', content)
++
++                    agent_name = name_match.group(1) if name_match else agent_dir.name
++                    agent_desc = desc_match.group(1) if desc_match else f"A2A Agent: {agent_name}"
++                    agent_port = port_match.group(1) if port_match else "8000"
++
++                    # Skip if already in registry
++                    if agent_name in seen_names:
++                        continue
++
++                    seen_names.add(agent_name)
++
++                    # Create agent entry
++                    agent = RegisteredAgent(
++                        name=agent_name,
++                        display_name=agent_name.replace("_", " ").title(),
++                        url=f"http://localhost:{agent_port}",
++                        description=agent_desc,
++                        skills=[],
++                        is_online=False,  # Will be checked separately
++                    )
++                    agents.append(agent)
++
++                except Exception as e:
++                    print(f"Failed to parse {agent_py}: {e}")
++
+         return agents
+ 
+     def get_agent(self, name: str) -> Optional[RegisteredAgent]:
+@@ -129,9 +193,22 @@ async def register_from_url(self, url: str) -> Optional[RegisteredAgent]:
+             print(f"Failed to register from URL: {e}")
+             return None
+ 
++    def _find_agent_by_name(self, name: str) -> Optional[RegisteredAgent]:
++        """?대쫫?쇰줈 ?먯씠?꾪듃 李얘린 (JSON + ?먮룞 ?ㅼ틪 ?ы븿)"""
++        # 1. JSON ?뚯씪?먯꽌 癒쇱? 李얘린
++        agent = self.get_agent(name)
++        if agent:
++            return agent
++
++        # 2. ?먮룞 ?ㅼ틪???먯씠?꾪듃?먯꽌 李얘린
++        for a in self.list_agents():
++            if a.name == name:
++                return a
++        return None
++
+     async def check_agent_status(self, name: str) -> bool:
+         """?먯씠?꾪듃 ?⑤씪???곹깭 ?뺤씤"""
+-        agent = self.get_agent(name)
++        agent = self._find_agent_by_name(name)
+         if not agent:
+             return False
+ 
+@@ -141,29 +218,33 @@ async def check_agent_status(self, name: str) -> bool:
+                 response = await client.get(agent_card_url)
+                 is_online = response.status_code == 200
+ 
+-            # ?곹깭 ?낅뜲?댄듃
+-            agent.is_online = is_online
+-            agent.last_checked = datetime.now().isoformat()
+-            self.register_agent(agent)
++            # ?곹깭 ?낅뜲?댄듃 (JSON ?깅줉???먯씠?꾪듃留?
++            if self.get_agent(name):
++                agent.is_online = is_online
++                agent.last_checked = datetime.now().isoformat()
++                self.register_agent(agent)
+ 
+             return is_online
+         except:
+-            # ?ㅽ봽?쇱씤?쇰줈 ?쒖떆
+-            agent.is_online = False
+-            agent.last_checked = datetime.now().isoformat()
+-            self.register_agent(agent)
+             return False
+ 
+     async def check_all_status(self) -> Dict[str, bool]:
+         """紐⑤뱺 ?먯씠?꾪듃 ?곹깭 ?뺤씤"""
+         results = {}
+         for agent in self.list_agents():
+-            results[agent.name] = await self.check_agent_status(agent.name)
++            try:
++                agent_card_url = agent.url.rstrip("/") + "/.well-known/agent.json"
++                async with httpx.AsyncClient(timeout=5.0) as client:
++                    response = await client.get(agent_card_url)
++                    results[agent.name] = response.status_code == 200
++            except Exception:
++                results[agent.name] = False
+         return results
+ 
+     def get_agent_component_config(self, name: str) -> Optional[dict]:
+-        """?먯씠?꾪듃瑜?ComponentModel config濡?蹂??""
+-        agent = self.get_agent(name)
++        """?먯씠?꾪듃瑜?ComponentModel config濡?蹂??(JSON + ?먮룞 ?ㅼ틪 ?ы븿)"""
++        # ?먮룞 ?ㅼ틪???먯씠?꾪듃??李얠쓣 ???덈룄濡?_find_agent_by_name ?ъ슜
++        agent = self._find_agent_by_name(name)
+         if not agent:
+             return None
+ 

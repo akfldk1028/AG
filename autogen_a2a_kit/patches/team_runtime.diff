@@ -1,0 +1,1162 @@
+﻿diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/index.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/index.ts
+new file mode 100644
+index 0000000..2354baf
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/index.ts
+@@ -0,0 +1,45 @@
++/**
++ * Team Runtime Module
++ *
++ * Converts visual pattern selections to actual AutoGen team configurations.
++ * Separated from pattern-schema (visualization) for clean architecture.
++ *
++ * Key components:
++ * - pattern-runtime: Main orchestrator for applying patterns
++ * - team-factory: Creates complete team configurations from patterns
++ * - *-config: Pattern-specific configuration helpers
++ */
++
++// Main pattern runtime functions
++export {
++  applyPatternToTeam,
++  applyPatternComplete,
++  validateTeamForExecution,
++  ensureTeamReady,
++  getCompatiblePatterns,
++  isPatternCompatible,
++  generateRoleDescriptions,
++  fillSelectorPrompt,
++  type PatternApplyResult,
++  type PatternApplyOptions,
++} from './pattern-runtime';
++
++// Team factory for creating complete team configurations
++export {
++  createNewTeamFromPattern,
++  applyPatternToExistingTeam,
++  createOrModifyTeam,
++  validateTeamConfig,
++  getRecommendedPattern,
++  getAvailablePatterns,
++  type TeamFactoryOptions,
++  type TeamFactoryResult,
++} from './team-factory';
++
++// Pattern-specific configuration helpers
++export { configureSwarm, type SwarmConfigOptions } from './swarm-config';
++export { configureSelector, type SelectorConfigOptions } from './selector-config';
++export { configureRoundRobin, type RoundRobinConfigOptions } from './roundrobin-config';
++
++// Re-export model client for convenience
++export { DEFAULT_MODEL_CLIENT } from '../agentflow/patterns/pattern-templates';
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/pattern-runtime.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/pattern-runtime.ts
+new file mode 100644
+index 0000000..e15fb17
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/pattern-runtime.ts
+@@ -0,0 +1,316 @@
++/**
++ * Pattern Runtime - Main Orchestrator
++ *
++ * Converts pattern selection to actual team runtime configuration.
++ * This is the core module that bridges visual patterns with AutoGen execution.
++ *
++ * Updated to use team-factory for complete configuration generation.
++ */
++
++import { Component, TeamConfig, AgentConfig } from "../../../../types/datamodel";
++import { PatternDefinition, getPatternById, PATTERN_LIBRARY } from "../agentflow/patterns/pattern-schema";
++import { configureSwarm, SwarmConfigOptions } from "./swarm-config";
++import { configureSelector, SelectorConfigOptions } from "./selector-config";
++import { configureRoundRobin, RoundRobinConfigOptions } from "./roundrobin-config";
++import {
++  createOrModifyTeam,
++  validateTeamConfig,
++  TeamFactoryOptions,
++  TeamFactoryResult,
++} from "./team-factory";
++import { DEFAULT_MODEL_CLIENT } from "../agentflow/patterns/pattern-templates";
++
++/**
++ * Options for applying a pattern to a team
++ */
++export interface PatternApplyOptions {
++  swarm?: SwarmConfigOptions;
++  selector?: SelectorConfigOptions;
++  roundRobin?: RoundRobinConfigOptions;
++}
++
++/**
++ * Result of applying a pattern
++ */
++export interface PatternApplyResult {
++  /** The modified team configuration */
++  teamConfig: Component<TeamConfig>;
++  /** Whether the pattern required provider change */
++  providerChanged: boolean;
++  /** Any warnings about the configuration */
++  warnings: string[];
++  /** The pattern that was applied */
++  appliedPattern: PatternDefinition | null;
++}
++
++/**
++ * Apply a pattern to a team configuration
++ *
++ * This is the main function that transforms a team configuration
++ * to match the selected pattern's requirements.
++ *
++ * @param teamConfig - The original team configuration
++ * @param patternId - The ID of the pattern to apply
++ * @param options - Configuration options for each pattern type
++ * @returns The modified team configuration with metadata
++ */
++export const applyPatternToTeam = (
++  teamConfig: Component<TeamConfig>,
++  patternId: string,
++  options: PatternApplyOptions = {}
++): PatternApplyResult => {
++  const pattern = getPatternById(patternId);
++
++  if (!pattern) {
++    return {
++      teamConfig,
++      providerChanged: false,
++      warnings: [`Pattern '${patternId}' not found in library`],
++      appliedPattern: null,
++    };
++  }
++
++  // Deep clone the teamConfig
++  const modifiedConfig = JSON.parse(
++    JSON.stringify(teamConfig)
++  ) as Component<TeamConfig>;
++
++  // Track original provider for comparison
++  const originalProvider = modifiedConfig.provider;
++  const warnings: string[] = [];
++
++  // Update the provider from pattern schema
++  modifiedConfig.provider = pattern.autogenProviderFull;
++
++  const config = modifiedConfig.config as any;
++  const participants = (config?.participants || []) as Component<AgentConfig>[];
++
++  // Apply pattern-specific configuration based on provider type
++  switch (pattern.autogenProvider) {
++    case "Swarm":
++      configureSwarm(config, participants, options.swarm || {});
++      break;
++
++    case "SelectorGroupChat":
++      const selectorResult = configureSelector(
++        config,
++        pattern,
++        options.selector || {}
++      );
++      warnings.push(...selectorResult.warnings);
++      break;
++
++    case "RoundRobinGroupChat":
++      configureRoundRobin(config, options.roundRobin || {});
++      break;
++
++    default:
++      warnings.push(`Unknown provider: ${pattern.autogenProvider}`);
++  }
++
++  return {
++    teamConfig: modifiedConfig,
++    providerChanged: originalProvider !== pattern.autogenProviderFull,
++    warnings,
++    appliedPattern: pattern,
++  };
++};
++
++/**
++ * Get compatible patterns for a given team provider
++ *
++ * Returns patterns that can be applied to a team with minimal changes.
++ *
++ * @param provider - The team's current provider string
++ * @returns Array of compatible pattern definitions
++ */
++export const getCompatiblePatterns = (
++  provider: string
++): PatternDefinition[] => {
++  // Map provider to its pattern family
++  const providerToFamily: Record<string, string[]> = {
++    RoundRobinGroupChat: ["sequential", "reflection"],
++    SelectorGroupChat: ["selector", "parallel", "debate", "supervisor"],
++    Swarm: ["swarm", "hierarchical"],
++  };
++
++  // Find which family this provider belongs to
++  for (const [key, patternIds] of Object.entries(providerToFamily)) {
++    if (provider.includes(key)) {
++      return patternIds
++        .map((id) => getPatternById(id))
++        .filter((p): p is PatternDefinition => p !== undefined);
++    }
++  }
++
++  // Default: return all patterns
++  return PATTERN_LIBRARY;
++};
++
++/**
++ * Check if a pattern is compatible with a team's provider
++ *
++ * @param provider - The team's current provider string
++ * @param patternId - The pattern to check
++ * @returns true if the pattern is natively compatible
++ */
++export const isPatternCompatible = (
++  provider: string,
++  patternId: string
++): boolean => {
++  const pattern = getPatternById(patternId);
++  if (!pattern) return false;
++
++  return provider.includes(pattern.autogenProvider);
++};
++
++/**
++ * Generate participant role descriptions for selector prompt
++ *
++ * @param participants - Array of participant configurations
++ * @returns Formatted role descriptions string
++ */
++export const generateRoleDescriptions = (
++  participants: Component<AgentConfig>[]
++): string => {
++  return participants
++    .map((p) => {
++      const name = p.config?.name || p.label || "Agent";
++      const description = p.config?.description || p.description || "No description";
++      return `- ${name}: ${description}`;
++    })
++    .join("\n");
++};
++
++/**
++ * Fill selector prompt placeholders with actual values
++ *
++ * @param prompt - The selector prompt template
++ * @param participants - Array of participant configurations
++ * @param history - Optional conversation history
++ * @returns The filled prompt string
++ */
++export const fillSelectorPrompt = (
++  prompt: string,
++  participants: Component<AgentConfig>[],
++  history?: string
++): string => {
++  const roles = generateRoleDescriptions(participants);
++  const names = participants
++    .map((p) => p.config?.name || p.label)
++    .filter(Boolean)
++    .join(", ");
++
++  return prompt
++    .replace("{roles}", roles)
++    .replace("{participants}", names)
++    .replace("{history}", history || "[No history yet]");
++};
++
++// ============================================
++// ENHANCED PATTERN APPLICATION (using team-factory)
++// ============================================
++
++/**
++ * Apply pattern to team with complete configuration
++ *
++ * This is the recommended function for applying patterns.
++ * It uses team-factory to ensure all required config is present.
++ *
++ * @param teamConfig - The original team configuration
++ * @param patternId - The ID of the pattern to apply
++ * @param options - Factory options for customization
++ */
++export const applyPatternComplete = (
++  teamConfig: Component<TeamConfig> | null,
++  patternId: string,
++  options: TeamFactoryOptions = {}
++): TeamFactoryResult => {
++  return createOrModifyTeam(teamConfig, patternId, options);
++};
++
++/**
++ * Validate that a team is ready to run
++ *
++ * Checks for:
++ * - Valid provider
++ * - Participants with model_client
++ * - Required pattern-specific config (e.g., selector_prompt)
++ */
++export const validateTeamForExecution = (
++  teamConfig: Component<TeamConfig>
++): { valid: boolean; errors: string[]; warnings: string[] } => {
++  const validation = validateTeamConfig(teamConfig);
++  const warnings: string[] = [];
++  const config = teamConfig.config as any;
++
++  // Additional checks
++  if (teamConfig.provider?.includes("SelectorGroupChat")) {
++    if (!config?.selector_prompt) {
++      warnings.push("SelectorGroupChat without selector_prompt may use default behavior");
++    }
++  }
++
++  if (!config?.termination_condition) {
++    warnings.push("No termination_condition set - task may run indefinitely");
++  }
++
++  return {
++    valid: validation.valid,
++    errors: validation.errors,
++    warnings,
++  };
++};
++
++/**
++ * Ensure team config is complete and ready to execute
++ *
++ * This is a convenience function that:
++ * 1. Applies the pattern if needed
++ * 2. Validates the configuration
++ * 3. Returns a ready-to-run config or errors
++ */
++export const ensureTeamReady = (
++  teamConfig: Component<TeamConfig>,
++  patternId?: string
++): {
++  teamConfig: Component<TeamConfig>;
++  isReady: boolean;
++  errors: string[];
++  warnings: string[];
++} => {
++  let finalConfig = teamConfig;
++  const allWarnings: string[] = [];
++
++  // Apply pattern if specified
++  if (patternId) {
++    const result = applyPatternComplete(teamConfig, patternId);
++    finalConfig = result.teamConfig;
++    allWarnings.push(...result.warnings);
++  }
++
++  // Validate
++  const validation = validateTeamForExecution(finalConfig);
++
++  return {
++    teamConfig: finalConfig,
++    isReady: validation.valid,
++    errors: validation.errors,
++    warnings: [...allWarnings, ...validation.warnings],
++  };
++};
++
++// Re-export factory functions for convenience
++export { createOrModifyTeam, validateTeamConfig } from "./team-factory";
++export { DEFAULT_MODEL_CLIENT };
++
++export default {
++  applyPatternToTeam,
++  applyPatternComplete,
++  validateTeamForExecution,
++  ensureTeamReady,
++  getCompatiblePatterns,
++  isPatternCompatible,
++  generateRoleDescriptions,
++  fillSelectorPrompt,
++};
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/roundrobin-config.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/roundrobin-config.ts
+new file mode 100644
+index 0000000..30d1667
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/roundrobin-config.ts
+@@ -0,0 +1,39 @@
++/**
++ * RoundRobin Pattern Configuration
++ *
++ * Configures team for RoundRobinGroupChat patterns:
++ * - Sequential/Pipeline
++ * - Reflection Loop
++ * - Removes selector-specific configs
++ */
++
++export interface RoundRobinConfigOptions {
++  /** Maximum rounds for reflection pattern */
++  maxRounds?: number;
++}
++
++/**
++ * Configure a team for RoundRobinGroupChat pattern
++ */
++export const configureRoundRobin = (
++  config: any,
++  options: RoundRobinConfigOptions = {}
++): void => {
++  // Remove selector-specific configs (not needed for round robin)
++  delete config.model_client;
++  delete config.selector_prompt;
++  delete config.allow_repeated_speaker;
++
++  // Remove handoffs (not used in round robin)
++  if (config.participants && Array.isArray(config.participants)) {
++    config.participants = config.participants.map((participant: any) => {
++      const modifiedParticipant = JSON.parse(JSON.stringify(participant));
++      if (modifiedParticipant.config) {
++        delete modifiedParticipant.config.handoffs;
++      }
++      return modifiedParticipant;
++    });
++  }
++};
++
++export default configureRoundRobin;
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/selector-config.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/selector-config.ts
+new file mode 100644
+index 0000000..6038daa
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/selector-config.ts
+@@ -0,0 +1,84 @@
++/**
++ * Selector Pattern Configuration
++ *
++ * Configures team for SelectorGroupChat patterns:
++ * - Adds model_client for LLM-based agent selection
++ * - Adds selector_prompt from pattern schema
++ * - Sets allow_repeated_speaker
++ */
++
++import { PatternDefinition } from "../agentflow/patterns/pattern-schema";
++
++export interface SelectorConfigOptions {
++  /** Whether to preserve existing model_client */
++  preserveModelClient?: boolean;
++  /** Custom model client override */
++  customModelClient?: {
++    provider: string;
++    config: Record<string, unknown>;
++  };
++  /** Custom selector prompt override */
++  customSelectorPrompt?: string;
++}
++
++export interface SelectorConfigResult {
++  /** Warnings about configuration */
++  warnings: string[];
++}
++
++/**
++ * Configure a team for SelectorGroupChat pattern
++ */
++export const configureSelector = (
++  config: any,
++  pattern: PatternDefinition,
++  options: SelectorConfigOptions = {}
++): SelectorConfigResult => {
++  const warnings: string[] = [];
++  const requiredConfig = pattern.requiredConfig;
++
++  // Add model_client from schema or options
++  if (!config.model_client || !options.preserveModelClient) {
++    if (options.customModelClient) {
++      config.model_client = options.customModelClient;
++    } else if (requiredConfig?.model_client) {
++      config.model_client = {
++        provider: requiredConfig.model_client.provider,
++        config: requiredConfig.model_client.config,
++      };
++    } else {
++      // Default model client for selector
++      config.model_client = {
++        provider: "autogen_ext.models.openai.OpenAIChatCompletionClient",
++        config: { model: "gpt-4o-mini" },
++      };
++      warnings.push(
++        "Using default model_client (gpt-4o-mini) for agent selection"
++      );
++    }
++  }
++
++  // Add selector_prompt from schema or options
++  if (!config.selector_prompt) {
++    if (options.customSelectorPrompt) {
++      config.selector_prompt = options.customSelectorPrompt;
++    } else if (pattern.prompts?.selector) {
++      config.selector_prompt = pattern.prompts.selector;
++    }
++  }
++
++  // Set allow_repeated_speaker from schema
++  if (
++    config.allow_repeated_speaker === undefined &&
++    requiredConfig?.allow_repeated_speaker !== undefined
++  ) {
++    config.allow_repeated_speaker = requiredConfig.allow_repeated_speaker;
++  } else if (config.allow_repeated_speaker === undefined) {
++    // Default for selector patterns
++    config.allow_repeated_speaker = true;
++  }
++
++  return { warnings };
++};
++
++export default configureSelector;
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/swarm-config.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/swarm-config.ts
+new file mode 100644
+index 0000000..5abd0eb
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/swarm-config.ts
+@@ -0,0 +1,61 @@
++/**
++ * Swarm Pattern Configuration
++ *
++ * Configures team for Swarm (Handoff) pattern:
++ * - Adds handoffs between all participants
++ * - Removes selector-specific configs (model_client, selector_prompt)
++ */
++
++import { Component, AgentConfig } from "../../../../types/datamodel";
++
++export interface SwarmConfigOptions {
++  /** Whether to create bidirectional handoffs */
++  bidirectional?: boolean;
++}
++
++/**
++ * Configure a team for Swarm pattern
++ */
++export const configureSwarm = (
++  config: any,
++  participants: Component<AgentConfig>[],
++  options: SwarmConfigOptions = {}
++): void => {
++  // Remove selector-specific configs
++  delete config.model_client;
++  delete config.selector_prompt;
++  delete config.allow_repeated_speaker;
++
++  // Get participant names
++  const participantNames = participants
++    .map((p) => p.config?.name || p.label)
++    .filter(Boolean) as string[];
++
++  // Add handoffs to each participant
++  if (config.participants && Array.isArray(config.participants)) {
++    config.participants = config.participants.map((participant: any) => {
++      const currentName = participant.config?.name || participant.name;
++      const otherParticipants = participantNames.filter(
++        (name: string) => name !== currentName
++      );
++
++      // Deep copy and add handoffs
++      const modifiedParticipant = JSON.parse(JSON.stringify(participant));
++
++      if (!modifiedParticipant.config) {
++        modifiedParticipant.config = {};
++      }
++
++      // Add handoffs as objects with target field
++      modifiedParticipant.config.handoffs = otherParticipants.map(
++        (name: string) => ({
++          target: name,
++        })
++      );
++
++      return modifiedParticipant;
++    });
++  }
++};
++
++export default configureSwarm;
+diff --git a/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/team-factory.ts b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/team-factory.ts
+new file mode 100644
+index 0000000..833ec8b
+--- /dev/null
++++ b/autogen_a2a_kit/autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/team-runtime/team-factory.ts
+@@ -0,0 +1,582 @@
++/**
++ * Team Factory - Creates complete team configurations from patterns
++ *
++ * This is the main entry point for creating teams that are ready to execute.
++ * It bridges:
++ * - Pattern selection (user picks a collaboration style)
++ * - Template system (pre-configured team structures)
++ * - Custom participants (user's actual agents)
++ * - Runtime configuration (model_client, termination, etc.)
++ */
++
++import { Component, TeamConfig, AgentConfig } from "../../../../types/datamodel";
++import {
++  getPatternById,
++  PatternDefinition,
++  PATTERN_LIBRARY,
++} from "../agentflow/patterns/pattern-schema";
++import {
++  getPatternTemplate,
++  cloneTemplate,
++  DEFAULT_MODEL_CLIENT,
++  DEFAULT_TERMINATION,
++  COMBINED_TERMINATION,
++  createAgentConfig,
++} from "../agentflow/patterns/pattern-templates";
++
++/**
++ * Agent info for dynamic prompt generation
++ */
++interface AgentInfo {
++  name: string;
++  description: string;
++}
++
++/**
++ * Generate dynamic selector_prompt based on actual agents (name + description)
++ * This allows A2A agents to participate in any pattern.
++ *
++ * A2A Integration: A2A agents have both name and description.
++ * The selector LLM needs descriptions to make intelligent speaker selection.
++ */
++const generateDynamicSelectorPrompt = (
++  patternId: string,
++  agents: AgentInfo[]
++): string => {
++  const names = agents.map(a => a.name).join(", ");
++  const agentList = agents.map(a =>
++    `- ${a.name}: ${a.description || "No description"}`
++  ).join("\n");
++
++  // Pattern-specific prompt templates
++  const promptTemplates: Record<string, string> = {
++    debate: `You are coordinating a multi-agent debate. You MUST rotate between different agents.
++
++Available Agents:
++${agentList}
++
++CRITICAL RULES:
++1. **NEVER select the same agent twice in a row** - you MUST choose a DIFFERENT agent than the last speaker
++2. Each agent must take turns presenting their unique perspective
++3. Ensure ALL agents participate by rotating through them fairly
++4. If Agent A just spoke, select Agent B or Agent C next - NEVER Agent A again
++
++Based on the conversation history, select the NEXT speaker (must be different from the last one).
++Consider:
++- Who just spoke? Select someone DIFFERENT
++- Has everyone had a chance to speak?
++- Whose expertise complements the current discussion?
++
++Available agents: ${names}
++Return ONLY the agent name, nothing else. The agent MUST be different from the last speaker.`,
++
++    selector: `You are a smart agent selector.
++
++Available Agents:
++${agentList}
++
++Based on the conversation history and the current request, choose the agent whose expertise best matches the needs.
++
++Available agents: ${names}
++Return ONLY the agent name, nothing else.`,
++
++    reflection: `You are coordinating a reflection/review pattern.
++
++Available Agents:
++${agentList}
++
++Pattern: One agent produces work, another reviews and provides feedback.
++Based on the conversation, select who should respond next.
++
++Available agents: ${names}
++Return ONLY the agent name, nothing else.`,
++
++    default: `Select the next agent to speak.
++
++Available Agents:
++${agentList}
++
++Based on the conversation history, choose the most appropriate agent to continue.
++Consider each agent's expertise and the current topic.
++
++Return ONLY the agent name, nothing else.`
++  };
++
++  return promptTemplates[patternId] || promptTemplates.default;
++};
++
++/**
++ * Options for creating a team from a pattern
++ */
++export interface TeamFactoryOptions {
++  /** Custom model client to use (overrides default) */
++  modelClient?: {
++    provider: string;
++    component_type: "model";
++    config: Record<string, unknown>;
++  };
++  /** Custom termination condition */
++  terminationCondition?: {
++    provider: string;
++    component_type: "termination";
++    config: Record<string, unknown>;
++  };
++  /** Whether to use combined termination (text + max messages) */
++  useCombinedTermination?: boolean;
++  /** Max messages for max message termination */
++  maxMessages?: number;
++  /** Preserve existing team's model_client if available */
++  preserveExistingModelClient?: boolean;
++}
++
++/**
++ * Result of team factory operation
++ */
++export interface TeamFactoryResult {
++  /** The created/modified team configuration */
++  teamConfig: Component<TeamConfig>;
++  /** Pattern that was applied */
++  pattern: PatternDefinition | null;
++  /** Whether a new team was created vs modified */
++  isNewTeam: boolean;
++  /** Any warnings during creation */
++  warnings: string[];
++  /** Whether model_client was added/modified */
++  modelClientModified: boolean;
++}
++
++/**
++ * Model client type for team factory
++ */
++type ModelClientConfig = {
++  provider: string;
++  component_type: "model";
++  config: Record<string, unknown>;
++};
++
++/**
++ * AssistantAgent ?꾩닔 ?꾨뱶 湲곕낯媛?+ * AutoGen??AssistantAgentConfig?????꾨뱶?ㅼ씠 ?꾩닔?낅땲??
++ */
++const ASSISTANT_AGENT_DEFAULTS = {
++  reflect_on_tool_use: false,
++  tool_call_summary_format: "{result}",
++  model_client_stream: false,
++};
++
++/**
++ * Ensure an agent has model_client and required fields configured
++ * For AssistantAgent, this also ensures reflect_on_tool_use, tool_call_summary_format, model_client_stream
++ */
++const ensureAgentModelClient = (
++  agent: Component<AgentConfig>,
++  defaultClient: ModelClientConfig
++): Component<AgentConfig> => {
++  const config = agent.config as any;
++  const isAssistantAgent = agent.provider?.includes("AssistantAgent");
++
++  // ?꾩닔 ?꾨뱶?ㅼ씠 ?대? ?ㅼ젙?섏뼱 ?덈뒗吏 ?뺤씤
++  const needsModelClient = !config?.model_client;
++  const needsAssistantDefaults = isAssistantAgent && (
++    config?.reflect_on_tool_use === undefined ||
++    config?.tool_call_summary_format === undefined ||
++    config?.model_client_stream === undefined
++  );
++
++  if (needsModelClient || needsAssistantDefaults) {
++    return {
++      ...agent,
++      config: {
++        ...config,
++        ...(needsModelClient ? { model_client: { ...defaultClient } } : {}),
++        ...(needsAssistantDefaults ? ASSISTANT_AGENT_DEFAULTS : {}),
++      },
++    };
++  }
++  return agent;
++};
++
++/**
++ * Create a completely new team from a pattern template
++ *
++ * This creates a fresh team using the pattern's default structure.
++ * Use this when starting from scratch.
++ */
++export const createNewTeamFromPattern = (
++  patternId: string,
++  options: TeamFactoryOptions = {}
++): TeamFactoryResult => {
++  const warnings: string[] = [];
++  const pattern = getPatternById(patternId);
++
++  if (!pattern) {
++    return {
++      teamConfig: createFallbackTeam(),
++      pattern: null,
++      isNewTeam: true,
++      warnings: [`Pattern '${patternId}' not found, using fallback sequential team`],
++      modelClientModified: true,
++    };
++  }
++
++  const template = getPatternTemplate(patternId);
++  if (!template) {
++    return {
++      teamConfig: createFallbackTeam(),
++      pattern,
++      isNewTeam: true,
++      warnings: [`No template for pattern '${patternId}', using fallback team`],
++      modelClientModified: true,
++    };
++  }
++
++  // Deep clone the template
++  const teamConfig = cloneTemplate(template);
++  const config = teamConfig.config as any;
++
++  // Apply custom model client if provided
++  const modelClient: ModelClientConfig = options.modelClient || DEFAULT_MODEL_CLIENT;
++  let modelClientModified = false;
++
++  // Update team-level model_client (for SelectorGroupChat)
++  if (config.model_client) {
++    config.model_client = { ...modelClient };
++    modelClientModified = true;
++  }
++
++  // Update each participant's model_client
++  if (config.participants) {
++    config.participants = config.participants.map((p: Component<AgentConfig>) => {
++      const updated = ensureAgentModelClient(p, modelClient);
++      if (updated !== p) modelClientModified = true;
++      return updated;
++    });
++  }
++
++  // Apply custom termination condition
++  if (options.useCombinedTermination) {
++    const combinedTerm = { ...COMBINED_TERMINATION };
++    if (options.maxMessages) {
++      (combinedTerm.config as any).conditions[1].config.max_messages = options.maxMessages;
++    }
++    config.termination_condition = combinedTerm;
++  } else if (options.terminationCondition) {
++    config.termination_condition = options.terminationCondition;
++  }
++
++  return {
++    teamConfig,
++    pattern,
++    isNewTeam: true,
++    warnings,
++    modelClientModified,
++  };
++};
++
++/**
++ * Apply a pattern to an existing team configuration
++ *
++ * This changes the team structure to match the selected pattern while
++ * PRESERVING existing agents (including A2A agents).
++ *
++ * A2A Integration: A2A agents can participate in ANY pattern.
++ * The pattern defines the STRUCTURE (SelectorGroupChat, RoundRobin, etc.),
++ * not the specific agents. Existing agents are always kept.
++ */
++export const applyPatternToExistingTeam = (
++  existingTeam: Component<TeamConfig>,
++  patternId: string,
++  options: TeamFactoryOptions = {}
++): TeamFactoryResult => {
++  const warnings: string[] = [];
++  const pattern = getPatternById(patternId);
++
++  if (!pattern) {
++    warnings.push(`Pattern '${patternId}' not found, returning original team`);
++    return {
++      teamConfig: existingTeam,
++      pattern: null,
++      isNewTeam: false,
++      warnings,
++      modelClientModified: false,
++    };
++  }
++
++  const existingParticipants = (existingTeam.config as any)?.participants || [];
++  const existingParticipantCount = existingParticipants.length;
++  const patternMinAgents = pattern.structure?.minAgents || 2;
++
++  // Get existing agent info (name + description) for selector prompt generation
++  // A2A agents have both name and description fields
++  const existingAgents: AgentInfo[] = existingParticipants.map(
++    (p: Component<AgentConfig>) => ({
++      name: (p.config?.name || "unnamed") as string,
++      description: (p.config?.description || p.description || "") as string
++    })
++  );
++  const existingAgentNames = existingAgents.map(a => a.name);
++
++  // ===== DEBUG: Pattern Application =====
++  console.log(`?뵇 APPLY PATTERN TO EXISTING TEAM:
++    patternId: "${patternId}"
++    patternProvider: "${pattern.autogenProviderFull}"
++    patternMinAgents: ${patternMinAgents}
++    existingParticipantCount: ${existingParticipantCount}
++    existingAgents: ${JSON.stringify(existingAgents, null, 2)}
++    action: ${existingParticipantCount === 0 ? "CREATE NEW (no agents)" : "KEEP EXISTING AGENTS"}
++  `);
++
++  // Only create new team if there are NO existing agents
++  // A2A agents should always be preserved!
++  if (existingParticipantCount === 0) {
++    console.log("??No existing agents - creating from pattern template");
++    warnings.push(`No existing agents. Using pattern's default agents.`);
++    return createNewTeamFromPattern(patternId, options);
++  }
++  console.log(`??Keeping ${existingParticipantCount} existing agents and applying ${patternId} structure`);
++
++  // Deep clone existing team
++  const teamConfig = JSON.parse(JSON.stringify(existingTeam)) as Component<TeamConfig>;
++  const config = teamConfig.config as any;
++  // Note: existingParticipants already defined above
++
++  // Get template for pattern-specific config
++  const template = getPatternTemplate(patternId);
++  const templateConfig = template?.config as any;
++
++  // Update provider to match pattern
++  teamConfig.provider = pattern.autogenProviderFull;
++
++  // Determine model client to use
++  let modelClient: ModelClientConfig;
++  let modelClientModified = false;
++
++  if (options.modelClient) {
++    modelClient = options.modelClient;
++    modelClientModified = true;
++  } else if (options.preserveExistingModelClient && config?.model_client) {
++    modelClient = config.model_client;
++  } else {
++    modelClient = DEFAULT_MODEL_CLIENT;
++    modelClientModified = true;
++  }
++
++  // Add team-level model_client for selector patterns
++  if (pattern.autogenProvider === "SelectorGroupChat") {
++    if (!config.model_client || !options.preserveExistingModelClient) {
++      config.model_client = { ...modelClient };
++      modelClientModified = true;
++    }
++
++    // Generate dynamic selector_prompt based on actual agents (name + description)
++    // This allows A2A agents (history_agent, philosophy_agent, etc.) to participate
++    // The selector LLM needs descriptions to make intelligent speaker selection
++    //
++    // IMPORTANT: ALWAYS regenerate selector_prompt when applying a pattern!
++    // The agents may have changed since the last time, and the old prompt
++    // might only include some of the agents.
++    {
++      const agentNames = existingAgentNames.join(", ");
++      const dynamicPrompt = generateDynamicSelectorPrompt(patternId, existingAgents);
++      config.selector_prompt = dynamicPrompt;
++      warnings.push(`Generated dynamic selector_prompt for agents: [${agentNames}]`);
++      console.log(`?뱷 Dynamic selector_prompt generated for pattern "${patternId}" with agents:\n${existingAgents.map(a => `  - ${a.name}: ${a.description}`).join('\n')}`);
++    }
++
++    // Set allow_repeated_speaker from pattern config
++    // IMPORTANT: Always apply pattern's value when applying a pattern!
++    // For debate patterns, this MUST be false to ensure speaker rotation.
++    config.allow_repeated_speaker =
++      pattern.requiredConfig?.allow_repeated_speaker ?? true;
++    console.log(`?봽 allow_repeated_speaker set to: ${config.allow_repeated_speaker} (from pattern "${patternId}")`);
++  }
++
++  // Configure handoffs for Swarm patterns
++  // Each agent needs a `handoffs` array listing other agents they can transfer to
++  if (pattern.autogenProvider === "Swarm") {
++    console.log(`?? Configuring handoffs for Swarm pattern with ${existingAgentNames.length} agents`);
++
++    // For each agent, set handoffs to all OTHER agents
++    config.participants = existingParticipants.map((p: Component<AgentConfig>, idx: number) => {
++      const agentName = (p.config?.name || `agent_${idx}`) as string;
++      // Get all other agent names as handoff targets
++      const handoffTargets = existingAgentNames.filter((name: string) => name !== agentName);
++
++      const agentConfig = p.config as any;
++
++      // Update the agent's handoffs
++      const updatedAgent = {
++        ...p,
++        config: {
++          ...agentConfig,
++          handoffs: handoffTargets,
++          // Also update system_message to instruct about handoffs
++          system_message: agentConfig.system_message +
++            `\n\n[HANDOFF INSTRUCTION] ?ㅻⅨ ?꾨Ц媛???꾩????꾩슂?섎㈃ transfer_to_<agent_name> ?⑥닔瑜??몄텧?섏꽭?? ` +
++            `?ъ슜 媛?ν븳 ?먯씠?꾪듃: ${handoffTargets.join(', ')}`
++        }
++      };
++
++      console.log(`  - ${agentName} can handoff to: [${handoffTargets.join(', ')}]`);
++      return updatedAgent;
++    });
++
++    warnings.push(`Configured handoffs for ${existingAgentNames.length} agents in Swarm pattern`);
++  }
++
++  // Ensure all participants have model_client
++  // NOTE: Use config.participants (which may have been updated by Swarm handoff config)
++  // instead of existingParticipants (which is the original)
++  if (config.participants && config.participants.length > 0) {
++    config.participants = config.participants.map((p: Component<AgentConfig>) => {
++      const updated = ensureAgentModelClient(p, modelClient);
++      if (updated !== p) modelClientModified = true;
++      return updated;
++    });
++  } else if (existingParticipants.length > 0) {
++    // Fallback to existingParticipants if config.participants not set
++    config.participants = existingParticipants.map((p: Component<AgentConfig>) => {
++      const updated = ensureAgentModelClient(p, modelClient);
++      if (updated !== p) modelClientModified = true;
++      return updated;
++    });
++  }
++
++  // Add termination condition if missing
++  if (!config.termination_condition) {
++    if (options.useCombinedTermination) {
++      config.termination_condition = { ...COMBINED_TERMINATION };
++    } else if (options.terminationCondition) {
++      config.termination_condition = options.terminationCondition;
++    } else {
++      config.termination_condition = { ...DEFAULT_TERMINATION };
++    }
++    warnings.push("Added default termination condition");
++  }
++
++  return {
++    teamConfig,
++    pattern,
++    isNewTeam: false,
++    warnings,
++    modelClientModified,
++  };
++};
++
++/**
++ * Smart team creation - decides whether to create new or modify existing
++ *
++ * @param existingTeam - Current team config (if any)
++ * @param patternId - Pattern to apply
++ * @param options - Creation options
++ */
++export const createOrModifyTeam = (
++  existingTeam: Component<TeamConfig> | null | undefined,
++  patternId: string,
++  options: TeamFactoryOptions = {}
++): TeamFactoryResult => {
++  // If no existing team or it has no participants, create new
++  if (!existingTeam) {
++    return createNewTeamFromPattern(patternId, options);
++  }
++
++  const config = existingTeam.config as any;
++  const hasParticipants =
++    config?.participants && config.participants.length > 0;
++
++  if (!hasParticipants) {
++    // Existing team shell but no agents - create fresh from template
++    return createNewTeamFromPattern(patternId, options);
++  }
++
++  // Has participants - preserve them and apply pattern
++  return applyPatternToExistingTeam(existingTeam, patternId, options);
++};
++
++/**
++ * Create a minimal fallback team (sequential with 2 agents)
++ */
++const createFallbackTeam = (): Component<TeamConfig> => ({
++  provider: "autogen_agentchat.teams.RoundRobinGroupChat",
++  component_type: "team",
++  config: {
++    participants: [
++      createAgentConfig(
++        "Assistant",
++        "General purpose assistant",
++        "You are a helpful assistant."
++      ),
++      createAgentConfig(
++        "Reviewer",
++        "Reviews and validates work",
++        "You review work and say TERMINATE when satisfied."
++      ),
++    ],
++    termination_condition: DEFAULT_TERMINATION,
++  },
++});
++
++/**
++ * Validate a team configuration is ready to run
++ */
++export const validateTeamConfig = (
++  teamConfig: Component<TeamConfig>
++): { valid: boolean; errors: string[] } => {
++  const errors: string[] = [];
++  const config = teamConfig.config as any;
++
++  // Check provider
++  if (!teamConfig.provider) {
++    errors.push("Missing team provider");
++  }
++
++  // Check participants
++  if (!config?.participants || config.participants.length === 0) {
++    errors.push("Team has no participants");
++  } else {
++    // Check each participant has model_client
++    config.participants.forEach((p: any, i: number) => {
++      if (!p.config?.model_client) {
++        errors.push(`Participant ${i} (${p.config?.name || "unnamed"}) missing model_client`);
++      }
++    });
++  }
++
++  // Check selector patterns have required config
++  if (teamConfig.provider?.includes("SelectorGroupChat")) {
++    if (!config?.model_client) {
++      errors.push("SelectorGroupChat requires team-level model_client");
++    }
++  }
++
++  return {
++    valid: errors.length === 0,
++    errors,
++  };
++};
++
++/**
++ * Get recommended pattern based on number of agents
++ */
++export const getRecommendedPattern = (agentCount: number): string => {
++  if (agentCount <= 2) return "sequential";
++  if (agentCount === 2) return "reflection";
++  if (agentCount <= 4) return "selector";
++  return "swarm";
++};
++
++/**
++ * Get all available patterns
++ */
++export const getAvailablePatterns = (): PatternDefinition[] => {
++  return PATTERN_LIBRARY;
++};
++
++export default {
++  createNewTeamFromPattern,
++  applyPatternToExistingTeam,
++  createOrModifyTeam,
++  validateTeamConfig,
++  getRecommendedPattern,
++  getAvailablePatterns,
++};
