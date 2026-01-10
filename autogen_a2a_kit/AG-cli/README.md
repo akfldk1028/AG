@@ -364,16 +364,190 @@ AG-cli/
 
 ---
 
+## 🎉 구현 완료!
+
+### 핵심 기능 (✅ 완료)
+
+1. **Message Bus** (`mcp/message_bus.py`)
+   - 에이전트 간 실시간 대화 라우팅
+   - WebSocket + REST API
+   - 실시간 협업 뷰어 (http://localhost:8100/viewer)
+
+2. **SharedMemory** (`mcp/shared_memory.py`)
+   - 아키텍처 결정 저장 (스키마, API 스펙)
+   - 이벤트 발행/구독
+   - 파일 락 관리
+
+3. **CollaborativeAgent** (`agents/base_collaborative.py`)
+   - 대화 기능 (say, ask, listen)
+   - SharedMemory 연동
+   - Claude CLI 실행
+
+4. **협업 예제** (`examples/collaboration/run_shopping_mall.py`)
+   - DB → Backend → Frontend → Test 순차 협업
+   - 실시간 대화 표시
+
+---
+
+## 🚀 빠른 시작
+
+```bash
+# 1. 필요한 라이브러리 설치
+pip install fastapi uvicorn websockets httpx rich
+
+# 2. Message Bus 시작 (터미널 1)
+cd AG-cli
+python mcp/message_bus.py
+
+# 3. SharedMemory 시작 (터미널 2)
+python mcp/shared_memory.py
+
+# 4. 협업 뷰어 열기
+# 브라우저에서: http://localhost:8100/viewer
+
+# 5. 쇼핑몰 예제 실행 (터미널 3)
+python examples/collaboration/run_shopping_mall.py
+```
+
+---
+
+## 📁 파일 구조 (최신)
+
+```
+AG-cli/
+├── README.md                           # 이 파일
+├── docs/
+│   ├── ARCHITECTURE.md                 # 상세 아키텍처
+│   ├── AGENTS.md                       # 에이전트 정의
+│   ├── A2A_INTEGRATION.md              # A2A 통합 가이드
+│   └── COLLABORATIVE_FLOW.md           # ★ 협업 아키텍처
+├── agents/
+│   ├── __init__.py
+│   └── base_collaborative.py           # ★ 협업 에이전트 베이스
+├── mcp/
+│   ├── __init__.py
+│   ├── message_bus.py                  # ★ 에이전트 대화 허브
+│   └── shared_memory.py                # ★ 정보 공유 서버
+├── examples/
+│   ├── frontend_agent_claude.py        # A2A + Claude CLI 예제
+│   ├── frontend_agent_sdk.py           # A2A + SDK 예제
+│   └── collaboration/
+│       └── run_shopping_mall.py        # ★ 협업 예제
+└── project/                            # 생성된 프로젝트 폴더
+    ├── frontend/
+    ├── backend/
+    ├── db/
+    └── tests/
+```
+
+---
+
+## 🔧 서버 포트 정보
+
+| 서버 | 포트 | 설명 |
+|------|------|------|
+| Message Bus | 8100 | 에이전트 대화 라우팅 |
+| SharedMemory | 8101 | 정보 공유 |
+| Frontend Agent | 8010 | (예정) A2A 에이전트 |
+| Backend Agent | 8011 | (예정) A2A 에이전트 |
+| DB Agent | 8012 | (예정) A2A 에이전트 |
+| Test Agent | 8013 | (예정) A2A 에이전트 |
+
+---
+
+## 📖 상세 문서
+
+| 문서 | 설명 |
+|------|------|
+| [MAINTAINER_GUIDE.md](docs/MAINTAINER_GUIDE.md) | **★ AI 유지보수 가이드 (필독!)** |
+| [COLLABORATIVE_FLOW.md](docs/COLLABORATIVE_FLOW.md) | 에이전트 간 대화 아키텍처 |
+| [A2A_INTEGRATION.md](docs/A2A_INTEGRATION.md) | 기존 A2A와 통합 방법 |
+| [AGENTS.md](docs/AGENTS.md) | 에이전트 역할 정의 |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 전체 시스템 아키텍처 |
+
+> **Note for AI Maintainers**: 코드 수정 전 반드시 [MAINTAINER_GUIDE.md](docs/MAINTAINER_GUIDE.md)를 읽어주세요.
+
+---
+
 ## 다음 단계
 
-1. [ ] 기본 FolderSpecialistAgent 클래스 구현
-2. [ ] SharedMemory MCP 서버 구현
-3. [ ] 오케스트레이터 프로토타입
-4. [ ] 간단한 예제 (Todo App) 테스트
-5. [ ] A2A 통합
-6. [ ] AutoGen Studio UI 연동
+1. [x] ~~기본 CollaborativeAgent 클래스 구현~~
+2. [x] ~~SharedMemory MCP 서버 구현~~
+3. [x] ~~Message Bus 구현~~
+4. [x] ~~협업 예제 작성~~
+5. [x] ~~A2A 에이전트 서버 통합~~ (studio/cli_agent.py)
+6. [x] ~~AutoGen Studio UI 연동~~ (studio/websocket_bridge.py)
+7. [ ] 실제 Claude CLI 연동 테스트
+
+---
+
+## 🔗 AutoGen Studio 통합
+
+AG-CLI 에이전트를 AutoGen Studio에서 사용하려면:
+
+### 1. 서버 시작
+
+```powershell
+# 터미널 1: Message Bus
+python mcp/message_bus.py
+
+# 터미널 2: SharedMemory
+python mcp/shared_memory.py
+
+# 터미널 3: WebSocket Bridge (UI 연동)
+python studio/websocket_bridge.py
+
+# 터미널 4-7: CLI Agents (각 폴더별)
+python studio/cli_agent.py --folder db --expertise PostgreSQL --port 8110
+python studio/cli_agent.py --folder backend --expertise FastAPI --port 8111
+python studio/cli_agent.py --folder frontend --expertise React --port 8112
+python studio/cli_agent.py --folder tests --expertise pytest --port 8113
+```
+
+### 2. AutoGen Studio에서 사용
+
+1. AutoGen Studio UI 접속: http://127.0.0.1:8081
+2. "Build" 탭에서 A2A 에이전트 등록:
+   - Name: `cli_db_agent`
+   - URL: `http://localhost:8110`
+3. 팀 생성 후 `cli_collaboration` 패턴 선택
+4. 실행하면 에이전트들이 Claude CLI로 실제 코드 생성!
+
+### 3. 실시간 대화 뷰어
+
+- Message Bus 뷰어: http://localhost:8100/viewer
+- WebSocket Bridge 뷰어: http://localhost:8102/viewer
+
+### 포트 정보 (통합)
+
+| 서버 | 포트 | 설명 |
+|------|------|------|
+| Message Bus | 8100 | 에이전트 대화 |
+| SharedMemory | 8101 | 정보 공유 |
+| WebSocket Bridge | 8102 | UI 연동 |
+| cli_db_agent | 8110 | DB 전문 |
+| cli_backend_agent | 8111 | Backend 전문 |
+| cli_frontend_agent | 8112 | Frontend 전문 |
+| cli_test_agent | 8113 | Test 전문 |
+
+### 파일 구조 (studio/)
+
+```
+AG-cli/
+├── studio/
+│   ├── __init__.py
+│   ├── cli_agent.py          # A2A 프로토콜 CLI 에이전트
+│   └── websocket_bridge.py   # Message Bus → UI 브릿지
+└── ...
+```
+
+### AG_Cohub 패턴
+
+`cli_collaboration` 패턴이 `AG_Cohub/patterns/11_cli_collaboration.json`에 추가되었습니다.
+이 패턴을 선택하면 4개의 CLI 에이전트가 협업합니다.
 
 ---
 
 *Created: 2025-01-10*
+*Updated: 2025-01-10*
 *Author: Claude Code*
