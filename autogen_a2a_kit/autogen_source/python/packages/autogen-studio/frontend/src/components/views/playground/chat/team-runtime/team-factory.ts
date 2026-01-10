@@ -391,8 +391,50 @@ export const applyPatternToExistingTeam = (
     console.log(`🔄 allow_repeated_speaker set to: ${config.allow_repeated_speaker} (from pattern "${patternId}")`);
   }
 
+  // Configure handoffs for Swarm patterns
+  // Each agent needs a `handoffs` array listing other agents they can transfer to
+  if (pattern.autogenProvider === "Swarm") {
+    console.log(`🔀 Configuring handoffs for Swarm pattern with ${existingAgentNames.length} agents`);
+
+    // For each agent, set handoffs to all OTHER agents
+    config.participants = existingParticipants.map((p: Component<AgentConfig>, idx: number) => {
+      const agentName = (p.config?.name || `agent_${idx}`) as string;
+      // Get all other agent names as handoff targets
+      const handoffTargets = existingAgentNames.filter((name: string) => name !== agentName);
+
+      const agentConfig = p.config as any;
+
+      // Update the agent's handoffs
+      const updatedAgent = {
+        ...p,
+        config: {
+          ...agentConfig,
+          handoffs: handoffTargets,
+          // Also update system_message to instruct about handoffs
+          system_message: agentConfig.system_message +
+            `\n\n[HANDOFF INSTRUCTION] 다른 전문가의 도움이 필요하면 transfer_to_<agent_name> 함수를 호출하세요. ` +
+            `사용 가능한 에이전트: ${handoffTargets.join(', ')}`
+        }
+      };
+
+      console.log(`  - ${agentName} can handoff to: [${handoffTargets.join(', ')}]`);
+      return updatedAgent;
+    });
+
+    warnings.push(`Configured handoffs for ${existingAgentNames.length} agents in Swarm pattern`);
+  }
+
   // Ensure all participants have model_client
-  if (existingParticipants.length > 0) {
+  // NOTE: Use config.participants (which may have been updated by Swarm handoff config)
+  // instead of existingParticipants (which is the original)
+  if (config.participants && config.participants.length > 0) {
+    config.participants = config.participants.map((p: Component<AgentConfig>) => {
+      const updated = ensureAgentModelClient(p, modelClient);
+      if (updated !== p) modelClientModified = true;
+      return updated;
+    });
+  } else if (existingParticipants.length > 0) {
+    // Fallback to existingParticipants if config.participants not set
     config.participants = existingParticipants.map((p: Component<AgentConfig>) => {
       const updated = ensureAgentModelClient(p, modelClient);
       if (updated !== p) modelClientModified = true;

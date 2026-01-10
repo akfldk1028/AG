@@ -3,6 +3,7 @@
 
 import os
 import math
+from typing import List
 from pathlib import Path
 from dotenv import load_dotenv
 from google.adk.agents import Agent
@@ -138,11 +139,11 @@ def prime_factorization(n: int) -> dict:
     }
 
 
-def matrix_determinant(matrix: list) -> dict:
+def matrix_determinant(matrix: List[List[float]]) -> dict:
     """2x2 또는 3x3 행렬의 행렬식을 계산한다.
 
     Args:
-        matrix: 2x2 또는 3x3 행렬 (2차원 리스트)
+        matrix: 2x2 또는 3x3 행렬. 예: [[1,2],[3,4]] 또는 [[1,2,3],[4,5,6],[7,8,9]]
 
     Returns:
         행렬식 값과 특성

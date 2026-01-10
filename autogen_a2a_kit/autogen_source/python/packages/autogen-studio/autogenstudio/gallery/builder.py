@@ -678,6 +678,76 @@ def create_cohub_gallery() -> GalleryConfig:
     # Track unique agents by name to avoid duplicates
     seen_agents = set()
 
+    # =============================================
+    # 1. Load A2A Agents directly from a2a_demo/ folder
+    # =============================================
+    import re
+
+    a2a_demo_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "a2a_demo"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "..", "a2a_demo"),
+        "D:/Data/22_AG/autogen_a2a_kit/a2a_demo",
+    ]
+
+    a2a_demo_path = None
+    for path in a2a_demo_paths:
+        if os.path.isdir(path):
+            a2a_demo_path = path
+            print(f"✅ Found a2a_demo folder: {path}")
+            break
+
+    if a2a_demo_path:
+        # Scan all subdirectories for agent.py files
+        for agent_dir in os.listdir(a2a_demo_path):
+            agent_py_path = os.path.join(a2a_demo_path, agent_dir, "agent.py")
+
+            if os.path.isfile(agent_py_path):
+                try:
+                    with open(agent_py_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # Parse agent info from agent.py using regex
+                    # Look for: name="agent_name"
+                    name_match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', content)
+                    # Look for: description="..."
+                    desc_match = re.search(r'description\s*=\s*["\']([^"\']+)["\']', content)
+                    # Look for: port=8007 or port: 8007
+                    port_match = re.search(r'port\s*[=:]\s*(\d+)', content)
+
+                    agent_name = name_match.group(1) if name_match else agent_dir
+                    agent_desc = desc_match.group(1) if desc_match else f"A2A Agent: {agent_name}"
+                    agent_port = port_match.group(1) if port_match else "unknown"
+
+                    # Skip non-agent directories and special agents
+                    skip_agents = ["action", "root_agent", "remote_agent", "remote_prime_checker"]
+                    if agent_name in seen_agents or agent_name in skip_agents or agent_dir in skip_agents:
+                        continue
+
+                    seen_agents.add(agent_name)
+
+                    # Create AssistantAgent for Gallery display
+                    agent = AssistantAgent(
+                        name=agent_name,
+                        description=agent_desc,
+                        system_message=f"A2A Agent: {agent_desc}",
+                        model_client=base_model,
+                    )
+
+                    # Create label with Korean description
+                    label = f"{agent_name} (A2A Port {agent_port})"
+
+                    builder.add_agent(
+                        agent.dump_component(),
+                        label=label,
+                        description=agent_desc,
+                    )
+                    print(f"  ✅ Added A2A agent: {agent_name} (port {agent_port})")
+                except Exception as e:
+                    print(f"Warning: Failed to parse {agent_py_path}: {e}")
+
+    # =============================================
+    # 2. Load Pattern Agents (existing)
+    # =============================================
     for pattern_file in sorted(pattern_files):
         try:
             with open(pattern_file, 'r', encoding='utf-8') as f:
@@ -713,6 +783,98 @@ def create_cohub_gallery() -> GalleryConfig:
             print(f"Warning: Failed to load pattern file {pattern_file}: {e}")
             continue
 
+    print(f"✅ AG_COHUB Gallery: {len(seen_agents)} agents loaded")
+
+    # =============================================
+    # 3. Create Teams from Pattern JSON files
+    # =============================================
+    teams_added = 0
+
+    for pattern_file in sorted(pattern_files):
+        try:
+            with open(pattern_file, 'r', encoding='utf-8') as f:
+                pattern_data = json.load(f)
+
+            pattern_id = pattern_data.get("id", "")
+            pattern_name = pattern_data.get("name", {}).get("en", "Unknown Pattern")
+            pattern_desc = pattern_data.get("description", {}).get("en", "")
+
+            autogen_impl = pattern_data.get("autogen_implementation", {})
+            provider = autogen_impl.get("provider", "")
+            team_config = autogen_impl.get("team_config", {})
+            required_config = autogen_impl.get("requiredConfig", {})
+            participants_data = team_config.get("participants", [])
+
+            if not participants_data:
+                continue
+
+            # Create participant agents
+            participants = []
+            for p in participants_data:
+                p_config = p.get("config", {})
+                p_name = p_config.get("name", "agent")
+                p_desc = p_config.get("description", "")
+                p_sys_msg = p_config.get("system_message", "You are a helpful assistant.")
+                p_handoffs = p_config.get("handoffs", None)
+
+                agent = AssistantAgent(
+                    name=p_name,
+                    description=p_desc,
+                    system_message=p_sys_msg,
+                    model_client=base_model,
+                    handoffs=p_handoffs if p_handoffs else None,
+                )
+                participants.append(agent)
+
+            # Create termination condition
+            termination = text_term | max_term
+
+            # Create team based on provider type
+            team = None
+            if "RoundRobinGroupChat" in provider:
+                team = RoundRobinGroupChat(
+                    participants=participants,
+                    termination_condition=termination,
+                )
+            elif "SelectorGroupChat" in provider:
+                selector_prompt = team_config.get("selector_prompt", None)
+                allow_repeated = required_config.get("allow_repeated_speaker", True)
+                team = SelectorGroupChat(
+                    participants=participants,
+                    termination_condition=termination,
+                    model_client=base_model,
+                    selector_prompt=selector_prompt,
+                    allow_repeated_speaker=allow_repeated,
+                )
+            elif "Swarm" in provider:
+                team = Swarm(
+                    participants=participants,
+                    termination_condition=termination,
+                )
+            elif "MagenticOneGroupChat" in provider:
+                # MagenticOneGroupChat requires special handling - use SelectorGroupChat as fallback
+                selector_prompt = team_config.get("selector_prompt", None)
+                team = SelectorGroupChat(
+                    participants=participants,
+                    termination_condition=termination,
+                    model_client=base_model,
+                    selector_prompt=selector_prompt,
+                )
+
+            if team:
+                builder.add_team(
+                    team.dump_component(),
+                    label=f"{pattern_name}",
+                    description=pattern_desc[:200] if pattern_desc else f"Team from {pattern_name} pattern",
+                )
+                teams_added += 1
+                print(f"  ✅ Added team: {pattern_name}")
+
+        except Exception as e:
+            print(f"Warning: Failed to create team from {pattern_file}: {e}")
+            continue
+
+    print(f"✅ AG_COHUB Gallery: {teams_added} teams created from patterns")
     return builder.build()
 
 

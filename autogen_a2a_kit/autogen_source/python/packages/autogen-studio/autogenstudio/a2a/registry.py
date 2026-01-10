@@ -53,15 +53,79 @@ class A2ARegistry:
         return self._base_dir / f"{safe_name}.json"
 
     def list_agents(self) -> List[RegisteredAgent]:
-        """등록된 모든 에이전트 목록"""
+        """등록된 모든 에이전트 목록 (a2a_demo/ 자동 스캔 포함)"""
+        import re
+
         agents = []
+        seen_names = set()
+
+        # 1. 기존 레지스트리 파일에서 로드
         for file in self._base_dir.glob("*.json"):
             try:
                 with open(file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    agents.append(RegisteredAgent(**data))
+                    agent = RegisteredAgent(**data)
+                    agents.append(agent)
+                    seen_names.add(agent.name)
             except Exception as e:
                 print(f"Failed to load {file}: {e}")
+
+        # 2. a2a_demo/ 폴더 자동 스캔 (NEW!)
+        a2a_demo_paths = [
+            Path(__file__).parent.parent.parent.parent.parent.parent / "a2a_demo",
+            Path(__file__).parent.parent.parent.parent.parent.parent.parent / "a2a_demo",
+            Path("D:/Data/22_AG/autogen_a2a_kit/a2a_demo"),
+        ]
+
+        a2a_demo_path = None
+        for path in a2a_demo_paths:
+            if path.exists() and path.is_dir():
+                a2a_demo_path = path
+                break
+
+        if a2a_demo_path:
+            skip_dirs = {"action", "root_agent", "remote_agent", "remote_prime_checker", "__pycache__"}
+
+            for agent_dir in a2a_demo_path.iterdir():
+                if not agent_dir.is_dir() or agent_dir.name in skip_dirs:
+                    continue
+
+                agent_py = agent_dir / "agent.py"
+                if not agent_py.exists():
+                    continue
+
+                try:
+                    content = agent_py.read_text(encoding="utf-8")
+
+                    # Parse agent info using regex
+                    name_match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', content)
+                    desc_match = re.search(r'description\s*=\s*["\']([^"\']+)["\']', content)
+                    port_match = re.search(r'port\s*[=:]\s*(\d+)', content)
+
+                    agent_name = name_match.group(1) if name_match else agent_dir.name
+                    agent_desc = desc_match.group(1) if desc_match else f"A2A Agent: {agent_name}"
+                    agent_port = port_match.group(1) if port_match else "8000"
+
+                    # Skip if already in registry
+                    if agent_name in seen_names:
+                        continue
+
+                    seen_names.add(agent_name)
+
+                    # Create agent entry
+                    agent = RegisteredAgent(
+                        name=agent_name,
+                        display_name=agent_name.replace("_", " ").title(),
+                        url=f"http://localhost:{agent_port}",
+                        description=agent_desc,
+                        skills=[],
+                        is_online=False,  # Will be checked separately
+                    )
+                    agents.append(agent)
+
+                except Exception as e:
+                    print(f"Failed to parse {agent_py}: {e}")
+
         return agents
 
     def get_agent(self, name: str) -> Optional[RegisteredAgent]:
@@ -129,9 +193,22 @@ class A2ARegistry:
             print(f"Failed to register from URL: {e}")
             return None
 
+    def _find_agent_by_name(self, name: str) -> Optional[RegisteredAgent]:
+        """이름으로 에이전트 찾기 (JSON + 자동 스캔 포함)"""
+        # 1. JSON 파일에서 먼저 찾기
+        agent = self.get_agent(name)
+        if agent:
+            return agent
+
+        # 2. 자동 스캔된 에이전트에서 찾기
+        for a in self.list_agents():
+            if a.name == name:
+                return a
+        return None
+
     async def check_agent_status(self, name: str) -> bool:
         """에이전트 온라인 상태 확인"""
-        agent = self.get_agent(name)
+        agent = self._find_agent_by_name(name)
         if not agent:
             return False
 
@@ -141,29 +218,33 @@ class A2ARegistry:
                 response = await client.get(agent_card_url)
                 is_online = response.status_code == 200
 
-            # 상태 업데이트
-            agent.is_online = is_online
-            agent.last_checked = datetime.now().isoformat()
-            self.register_agent(agent)
+            # 상태 업데이트 (JSON 등록된 에이전트만)
+            if self.get_agent(name):
+                agent.is_online = is_online
+                agent.last_checked = datetime.now().isoformat()
+                self.register_agent(agent)
 
             return is_online
         except:
-            # 오프라인으로 표시
-            agent.is_online = False
-            agent.last_checked = datetime.now().isoformat()
-            self.register_agent(agent)
             return False
 
     async def check_all_status(self) -> Dict[str, bool]:
         """모든 에이전트 상태 확인"""
         results = {}
         for agent in self.list_agents():
-            results[agent.name] = await self.check_agent_status(agent.name)
+            try:
+                agent_card_url = agent.url.rstrip("/") + "/.well-known/agent.json"
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(agent_card_url)
+                    results[agent.name] = response.status_code == 200
+            except Exception:
+                results[agent.name] = False
         return results
 
     def get_agent_component_config(self, name: str) -> Optional[dict]:
-        """에이전트를 ComponentModel config로 변환"""
-        agent = self.get_agent(name)
+        """에이전트를 ComponentModel config로 변환 (JSON + 자동 스캔 포함)"""
+        # 자동 스캔된 에이전트도 찾을 수 있도록 _find_agent_by_name 사용
+        agent = self._find_agent_by_name(name)
         if not agent:
             return None
 

@@ -1,15 +1,15 @@
 /**
- * Pattern Loader - JSON 기반 패턴 로딩 시스템
+ * Pattern Loader - JSON 기반 패턴 로딩 시스템 (자동 스캔!)
  *
  * AG_Cohub/patterns/*.json에서 패턴을 로드하고 PatternDefinition으로 변환
  *
  * ## 사용법
- * patterns/data/ 폴더에 JSON 추가 → 자동 로드
+ * patterns/data/ 폴더에 JSON 추가 → 자동 로드 (import 수정 불필요!)
  *
  * ## 새 패턴 추가 시
  * 1. AG_Cohub/patterns/에 JSON 추가
  * 2. 이 폴더(data/)에 복사
- * 3. 아래 PATTERN_JSON_FILES에 import 추가
+ * 3. 끝! (자동 스캔됨)
  */
 
 import { PatternDefinition, PatternCategory, LayoutType, PatternVisual, PatternConnection } from "./pattern-types";
@@ -99,30 +99,25 @@ function getProvider(providerFull: string): ProviderConfig | undefined {
 }
 
 // ============================================
-// 패턴 JSON 로드
+// 패턴 JSON 자동 로드 (require.context)
 // ============================================
 
-import sequential from "./data/01_sequential.json";
-import concurrent from "./data/02_concurrent.json";
-import selector from "./data/03_selector.json";
-import groupChat from "./data/04_group_chat.json";
-import handoff from "./data/05_handoff.json";
-import magentic from "./data/06_magentic.json";
-import debate from "./data/07_debate.json";
-import reflection from "./data/08_reflection.json";
-import hierarchical from "./data/09_hierarchical.json";
+// Webpack require.context로 data/ 폴더의 모든 패턴 JSON 자동 스캔
+// 파일명 규칙: XX_name.json (예: 01_sequential.json, 10_new_pattern.json)
+const patternContext = (require as any).context(
+  "./data",
+  false,
+  /^\.\/(0[1-9]|[1-9][0-9])_[a-z_]+\.json$/
+);
 
-const PATTERN_JSON_FILES: CoHubPatternJSON[] = [
-  sequential as CoHubPatternJSON,
-  concurrent as CoHubPatternJSON,
-  selector as CoHubPatternJSON,
-  groupChat as CoHubPatternJSON,
-  handoff as CoHubPatternJSON,
-  magentic as CoHubPatternJSON,
-  debate as CoHubPatternJSON,
-  reflection as CoHubPatternJSON,
-  hierarchical as CoHubPatternJSON,
-];
+// 자동으로 모든 매칭 JSON 로드
+const PATTERN_JSON_FILES: CoHubPatternJSON[] = patternContext
+  .keys()
+  .sort()
+  .map((key: string) => patternContext(key) as CoHubPatternJSON);
+
+// 디버그: 로드된 패턴 수 출력
+console.log(`✅ Pattern Loader: ${PATTERN_JSON_FILES.length} patterns loaded automatically`);
 
 // ============================================
 // JSON → PatternDefinition 변환

@@ -312,8 +312,13 @@ async def get_agent_component(name: str) -> A2AAgentConfigResponse:
 async def check_all_agents_status() -> A2ARegistryResponse:
     """모든 에이전트 온라인 상태 확인"""
     registry = get_registry()
-    await registry.check_all_status()
+    status_map = await registry.check_all_status()  # 상태 맵 가져오기
     agents = registry.list_agents()
+
+    # 상태 맵으로 에이전트 상태 업데이트 (자동 스캔 에이전트 포함)
+    for agent in agents:
+        if agent.name in status_map:
+            agent.is_online = status_map[agent.name]
 
     online_count = sum(1 for a in agents if a.is_online)
     return A2ARegistryResponse(

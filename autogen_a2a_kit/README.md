@@ -1056,17 +1056,20 @@ autogen_source/python/packages/
 ## 새로운 A2A 에이전트 추가하기 (★ AI/개발자 필독!)
 
 > **이 섹션을 따라하면 5분 안에 새 에이전트를 추가할 수 있습니다.**
+>
+> **✅ Gallery 자동 등록!** `builder.py`가 `a2a_demo/` 폴더를 자동 스캔합니다.
+> agent.py 파일만 추가하면 Gallery에 자동으로 등록됩니다!
 
-### 체크리스트 (복붙용)
+### 체크리스트 (2단계로 끝!)
 
 ```
-[ ] 1. 포트 번호 결정 (8010, 8011, ...)
-[ ] 2. a2a_demo/{agent_name}/ 폴더 생성
-[ ] 3. agent.py 파일 생성 (아래 템플릿 복사)
-[ ] 4. CLAUDE.md 에이전트 테이블 업데이트
-[ ] 5. run_all.ps1 에이전트 배열 업데이트
-[ ] 6. 서버 실행 및 테스트
+[ ] 1. a2a_demo/{agent_name}/ 폴더 생성 + agent.py 작성
+[ ] 2. 서버 실행 및 테스트
 ```
+
+> **참고**: Gallery 자동 등록은 `autogenstudio/gallery/builder.py`의
+> `create_cohub_gallery()` 함수가 `a2a_demo/*/agent.py`를 스캔하여
+> name, description, port를 정규식으로 추출합니다.
 
 ### Step 1: 포트 번호 결정
 

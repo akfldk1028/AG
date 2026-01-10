@@ -64,11 +64,22 @@ export const A2AImportModal: React.FC<A2AImportModalProps> = ({
       console.error("Failed to load recent agents:", e);
     }
 
-    // Load registered agents from registry
+    // Load registered agents and check status when modal opens
     if (open) {
-      loadRegisteredAgents();
+      checkAllAgentsStatus();  // 모달 열릴 때 자동으로 상태 확인
     }
   }, [open]);
+
+  // Auto-refresh status every 10 seconds when modal is open and on registry tab
+  useEffect(() => {
+    if (!open || activeTab !== "registry") return;
+
+    const interval = setInterval(() => {
+      checkAllAgentsStatus(true);  // silent mode for auto-refresh
+    }, 10000);  // 10초마다 자동 새로고침
+
+    return () => clearInterval(interval);
+  }, [open, activeTab]);
 
   // Load registered agents from backend registry
   const loadRegisteredAgents = async () => {
@@ -86,20 +97,20 @@ export const A2AImportModal: React.FC<A2AImportModalProps> = ({
     }
   };
 
-  // Check all agents status
-  const checkAllAgentsStatus = async () => {
-    setRegistryLoading(true);
+  // Check all agents status (silent=true for auto-refresh without messages)
+  const checkAllAgentsStatus = async (silent: boolean = false) => {
+    if (!silent) setRegistryLoading(true);
     try {
       const response = await fetch("/api/a2a/registry/check-all", { method: "POST" });
       if (response.ok) {
         const data = await response.json();
         setRegisteredAgents(data.agents || []);
-        message.success(data.message);
+        if (!silent) message.success(data.message);
       }
     } catch (e) {
-      message.error("상태 확인 실패");
+      if (!silent) message.error("상태 확인 실패");
     } finally {
-      setRegistryLoading(false);
+      if (!silent) setRegistryLoading(false);
     }
   };
 
