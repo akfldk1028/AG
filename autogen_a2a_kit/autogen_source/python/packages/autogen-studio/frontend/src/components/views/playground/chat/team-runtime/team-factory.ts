@@ -384,10 +384,11 @@ export const applyPatternToExistingTeam = (
     }
 
     // Set allow_repeated_speaker from pattern config
-    // IMPORTANT: Always apply pattern's value when applying a pattern!
-    // For debate patterns, this MUST be false to ensure speaker rotation.
+    // DEFAULT: false (matches AutoGen's default behavior)
+    // AutoGen docs: "By default, the team will not select the same speaker consecutively"
+    // If a pattern needs repeated speakers, set requiredConfig.allow_repeated_speaker: true
     config.allow_repeated_speaker =
-      pattern.requiredConfig?.allow_repeated_speaker ?? true;
+      pattern.requiredConfig?.allow_repeated_speaker ?? false;
     console.log(`🔄 allow_repeated_speaker set to: ${config.allow_repeated_speaker} (from pattern "${patternId}")`);
   }
 

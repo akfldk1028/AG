@@ -68,14 +68,16 @@ export const configureSelector = (
   }
 
   // Set allow_repeated_speaker from schema
+  // AutoGen default is FALSE: "By default, the team will not select the same speaker consecutively"
   if (
     config.allow_repeated_speaker === undefined &&
     requiredConfig?.allow_repeated_speaker !== undefined
   ) {
     config.allow_repeated_speaker = requiredConfig.allow_repeated_speaker;
   } else if (config.allow_repeated_speaker === undefined) {
-    // Default for selector patterns
-    config.allow_repeated_speaker = true;
+    // Default for selector patterns - FALSE to match AutoGen's default behavior
+    // This prevents the same agent from speaking twice in a row (important for debate patterns)
+    config.allow_repeated_speaker = false;
   }
 
   return { warnings };

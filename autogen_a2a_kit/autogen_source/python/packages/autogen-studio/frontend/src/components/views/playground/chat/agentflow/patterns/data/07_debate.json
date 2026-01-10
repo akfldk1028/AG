@@ -70,12 +70,13 @@
       }
     }
   ],
+  "requiredConfig": {
+    "allow_repeated_speaker": false,
+    "max_turns": 10
+  },
   "autogen_implementation": {
     "provider": "autogen_agentchat.teams.SelectorGroupChat",
     "label": "Debate Team (찬반 토론)",
-    "requiredConfig": {
-      "allow_repeated_speaker": false
-    },
     "team_config": {
       "participants": [
         {
@@ -106,7 +107,7 @@
           }
         }
       ],
-      "selector_prompt": "토론 참가자: {roles}\n\n토론 규칙:\n1. advocate와 critic이 번갈아 발언\n2. 충분한 토론 후 judge가 결론\n\n{history}\n\n역할 이름만 반환하세요."
+      "selector_prompt": "토론 참가자: {roles}\n\n[필수 규칙]\n1. 같은 발언자가 연속으로 선택될 수 없습니다.\n2. 직전 발언자와 다른 참가자를 반드시 선택하세요.\n3. 모든 참가자가 골고루 발언할 기회를 갖도록 합니다.\n4. 토론이 충분히 진행된 후 judge가 결론을 내립니다.\n\n대화 기록:\n{history}\n\n다음 발언자 이름만 반환하세요 (직전 발언자 제외):"
     }
   },
   "termination_strategies": [

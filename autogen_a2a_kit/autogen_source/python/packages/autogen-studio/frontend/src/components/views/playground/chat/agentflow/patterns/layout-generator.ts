@@ -29,11 +29,11 @@ import {
 
 // Layout constants - increased spacing for better visibility
 const CANVAS = {
-  centerX: 450,
-  centerY: 280,
-  radius: 280,
-  layerSpacing: 180,
-  nodeSpacing: 240,
+  centerX: 500,
+  centerY: 320,
+  radius: 300,       // Increased for better node separation
+  layerSpacing: 200, // Increased for tree layouts
+  nodeSpacing: 280,  // Increased for chain layouts
 };
 
 /**
@@ -177,11 +177,11 @@ const generateHubSpokeLayout = (
   const nodes: Node[] = [];
   const edges: CustomEdge[] = [];
 
-  // User node
+  // User node - positioned far left to avoid overlap with hub/agents
   nodes.push(
     createUserNode(
       {
-        x: CANVAS.centerX - 300,
+        x: 50,  // Fixed left position instead of relative to center
         y: CANVAS.centerY - NODE_DIMENSIONS.default.height / 2,
       },
       participatedAgents.has("user"),
@@ -308,11 +308,11 @@ const generateMeshLayout = (
   const nodes: Node[] = [];
   const edges: CustomEdge[] = [];
 
-  // User node
+  // User node - positioned far left to avoid overlap
   nodes.push(
     createUserNode(
       {
-        x: CANVAS.centerX - 350,
+        x: 50,  // Fixed left position
         y: CANVAS.centerY - NODE_DIMENSIONS.default.height / 2,
       },
       participatedAgents.has("user"),
@@ -502,8 +502,8 @@ const generateForkJoinLayout = (
     })
   );
 
-  // Worker agents (spread vertically)
-  const agentSpacing = 140;
+  // Worker agents (spread vertically) - increased spacing to prevent overlap
+  const agentSpacing = 180;  // Increased from 140 to prevent node overlap (node height = 100px)
   const startY = CANVAS.centerY - ((participants.length - 1) * agentSpacing) / 2;
 
   participants.forEach((p, index) => {
@@ -713,10 +713,10 @@ const generateRingLayout = (
   const nodes: Node[] = [];
   const edges: CustomEdge[] = [];
 
-  // User node
+  // User node - positioned far left to avoid overlap with ring agents
   nodes.push(
     createUserNode(
-      { x: CANVAS.centerX - 350, y: CANVAS.centerY - NODE_DIMENSIONS.default.height / 2 },
+      { x: 50, y: CANVAS.centerY - NODE_DIMENSIONS.default.height / 2 },
       participatedAgents.has("user"),
       isProcessing
     )

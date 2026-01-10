@@ -29,6 +29,15 @@ interface CoHubPatternJSON {
   pros: string[];
   cons: string[];
   example_use_cases: Array<{ name: string; [key: string]: unknown }>;
+  // Top-level requiredConfig (used by most patterns like 07_debate.json)
+  requiredConfig?: {
+    allow_repeated_speaker?: boolean;
+    max_turns?: number;
+    model_client?: {
+      provider: string;
+      config: Record<string, unknown>;
+    };
+  };
   autogen_implementation: {
     provider: string;
     label?: string;
@@ -198,16 +207,20 @@ function convertToPatternDefinition(json: CoHubPatternJSON): PatternDefinition {
 
 function getRequiredConfig(provider: string, json: CoHubPatternJSON): PatternDefinition["requiredConfig"] {
   if (provider === "SelectorGroupChat" || provider === "MagenticOneGroupChat") {
-    // Read from JSON's requiredConfig if available
-    const jsonRequiredConfig = json.autogen_implementation?.requiredConfig;
+    // Read from JSON's requiredConfig - check BOTH top-level and autogen_implementation
+    // JSON files have requiredConfig at top level (e.g., 07_debate.json)
+    const topLevelConfig = json.requiredConfig;
+    const implConfig = json.autogen_implementation?.requiredConfig;
+    const jsonRequiredConfig = { ...implConfig, ...topLevelConfig }; // Top-level takes precedence
 
-    // Defaults
+    // Defaults - FALSE for Debate patterns to prevent same agent speaking twice
+    // AutoGen docs: "By default, the team will not select the same speaker consecutively"
     const defaults = {
       model_client: {
         provider: "autogen_ext.models.openai.OpenAIChatCompletionClient",
         config: { model: "gpt-4o-mini" },
       },
-      allow_repeated_speaker: true, // Default true, but can be overridden by JSON
+      allow_repeated_speaker: false, // Default FALSE to match AutoGen behavior
     };
 
     // Merge JSON config over defaults (JSON values take precedence)
@@ -336,9 +349,14 @@ function buildTeamTemplate(json: CoHubPatternJSON): Component<TeamConfig> {
   // SelectorGroupChat/MagenticOneGroupChat는 model_client 필요
   if (providerShort === "SelectorGroupChat" || providerShort === "MagenticOneGroupChat") {
     config.model_client = DEFAULT_MODEL_CLIENT;
-    // Read allow_repeated_speaker from JSON config, default to true
-    const jsonRequiredConfig = json.autogen_implementation?.requiredConfig;
-    config.allow_repeated_speaker = jsonRequiredConfig?.allow_repeated_speaker ?? true;
+    // Read allow_repeated_speaker from JSON config - check BOTH top-level and autogen_implementation
+    // JSON files have requiredConfig at top level (e.g., 07_debate.json)
+    const topLevelConfig = json.requiredConfig;
+    const implConfig = json.autogen_implementation?.requiredConfig;
+    // Top-level takes precedence, default to FALSE (AutoGen default behavior)
+    config.allow_repeated_speaker = topLevelConfig?.allow_repeated_speaker
+      ?? implConfig?.allow_repeated_speaker
+      ?? false;
   }
 
   // selector_prompt 추가
