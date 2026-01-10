@@ -334,6 +334,8 @@ stop_all.bat
 | 07 | Debate | SelectorGroupChat | `allow_repeated_speaker: false` | 토론/반박 |
 | 08 | Reflection | SelectorGroupChat | - | 작업자+검토자 |
 | 09 | Hierarchical | SelectorGroupChat | - | 계층적 위임 |
+| 10 | Mixture of Agents | SelectorGroupChat | `model_client` | 다중 에이전트 앙상블 |
+| 11 | Code Execution | RoundRobinGroupChat | `termination_condition` | 코드 작성+실행 |
 
 ---
 
@@ -406,27 +408,32 @@ stop_all.bat
 
 **핵심**: `allow_repeated_speaker: false`로 설정해야 에이전트 로테이션 강제!
 
+> **🐛 Bug Fix (2025-01-10)**: `requiredConfig`가 top-level과 `autogen_implementation` 양쪽에서 읽히도록 수정됨.
+> 이제 JSON 패턴 파일의 top-level `requiredConfig.allow_repeated_speaker: false`가 정상 적용됩니다.
+
 ```json
 {
   "provider": "autogen_agentchat.teams.SelectorGroupChat",
-  "autogen_implementation": {
-    "requiredConfig": {
-      "allow_repeated_speaker": false  // ★ 핵심: 강제 로테이션
-    }
+  "requiredConfig": {
+    "allow_repeated_speaker": false,  // ★ top-level에서 설정 (권장)
+    "max_turns": 10
   },
-  "config": {
-    "model_client": { ... },
-    "selector_prompt": "NEVER select the same agent twice in a row...",
-    "allow_repeated_speaker": false,
-    "participants": [ ... ]
+  "autogen_implementation": {
+    "provider": "autogen_agentchat.teams.SelectorGroupChat",
+    "team_config": { ... }
   }
 }
 ```
 
+**수정된 파일:**
+- `pattern-loader.ts`: top-level + autogen_implementation 양쪽에서 requiredConfig 읽기
+- `selector-config.ts`: allow_repeated_speaker 기본값을 false로 설정
+- `team-factory.ts`: selector_prompt 적용 로직 개선
+
 | 설정 | 동작 |
 |------|------|
-| `allow_repeated_speaker: true` (기본값) | 같은 에이전트 계속 선택 가능 → 한 명만 응답하는 문제 발생! |
-| `allow_repeated_speaker: false` | 반드시 다른 에이전트 선택 → 토론 로테이션 |
+| `allow_repeated_speaker: true` | 같은 에이전트 계속 선택 가능 → 한 명만 응답하는 문제 발생! |
+| `allow_repeated_speaker: false` (기본값) | 반드시 다른 에이전트 선택 → 토론 로테이션 ✅ |
 
 ---
 
@@ -1421,6 +1428,19 @@ autogenstudio ui --port 8081
 # 7. 브라우저 접속
 http://localhost:8081
 ```
+
+## Changelog
+
+### 2025-01-10
+- 🐛 **Bug Fix**: `allow_repeated_speaker` 버그 수정
+  - `pattern-loader.ts`: top-level과 autogen_implementation 양쪽에서 requiredConfig 읽기
+  - `selector-config.ts`: 기본값을 false로 설정 (AutoGen 기본 동작과 일치)
+  - `team-factory.ts`: selector_prompt 적용 로직 개선
+- ✨ **New Patterns**: 10_mixture_of_agents.json, 11_code_execution.json 추가
+- ✅ **Tested Patterns**:
+  - Multi-Agent Debate: 4개 A2A 에이전트 토론 성공
+  - Reflection Pattern: 44,405 tokens | 20 messages
+  - Selector/Router Orchestration: 27,491 tokens | 15 messages
 
 ## 라이선스
 
