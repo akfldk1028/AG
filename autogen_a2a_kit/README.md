@@ -698,6 +698,89 @@ export GEMINI_API_KEY=your-gemini-api-key-here
   - 피보나치, 팩토리얼 계산
   - 수식 평가
 
+---
+
+## 🔧 CLI Agent (Claude Code 기반)
+
+> **NEW!** Claude Code CLI를 활용한 코드 작성/수정 전문 에이전트
+
+### CLI Agent 개요
+
+CLI 에이전트는 Claude Code의 6가지 도구를 A2A 프로토콜로 래핑하여 AutoGen Studio에서 사용할 수 있게 합니다.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    CLI Agent                             │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  A2A Protocol  ──▶  Google ADK  ──▶  Claude Code CLI   │
+│  (port 8110)        (FunctionTool)   (6 tools)          │
+│                                                         │
+│  지원 도구:                                              │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐       │
+│  │Read │ │Write│ │Edit │ │Glob │ │Grep │ │Bash │       │
+│  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### CLI Agent 포트
+
+| Agent | Port | 작업 폴더 | 역할 |
+|-------|------|----------|------|
+| cli_db_agent | 8110 | db/ | PostgreSQL 스키마, 마이그레이션, DB 관련 코드 |
+| cli_backend_agent | 8111 | backend/ | FastAPI, API 엔드포인트, 서버 코드 |
+
+### 지원하는 도구
+
+| 도구 | 기능 | 로그 형식 |
+|------|------|----------|
+| **Read** | 파일 읽기 | `[TOOL] [READ] Reading: {path}` |
+| **Write** | 파일 생성 | `[TOOL] [WRITE] Creating: {path}` |
+| **Edit** | 파일 수정 | `[TOOL] [EDIT] Modifying: {path}` |
+| **Glob** | 파일 검색 (패턴) | `[TOOL] [GLOB] Pattern: {pattern}` |
+| **Grep** | 내용 검색 | `[TOOL] [GREP] Search: {term}` |
+| **Bash** | 명령어 실행 | `[TOOL] [BASH] {command}` |
+
+### CLI Agent 실행
+
+```powershell
+# 개별 실행
+cd D:\Data\22_AG\autogen_a2a_kit\AG-cli\studio
+python cli_agent.py --port 8110 --folder db      # DB 에이전트
+python cli_agent.py --port 8111 --folder backend # Backend 에이전트
+```
+
+### CLI Agent 로그 확인
+
+```powershell
+# 실시간 로그 확인
+curl http://127.0.0.1:8110/logs
+
+# 특정 작업 로그
+curl http://127.0.0.1:8110/logs/{task_id}
+```
+
+### 로그 출력 예시
+
+```
+[14:44:39.918] [START] === Claude CLI Task Started ===
+[14:44:39.918] [INFO] Task: db/hello.py 파일 생성
+[14:44:45.411] [TOOL] [WRITE] Creating: D:\...\db\hello.py
+[14:44:45.412] [CODE] [CONTENT]
+print('Hello World!')
+[14:44:46.271] [RESULT] [CREATED] D:\...\db\hello.py
+[14:44:48.863] [OUT] [ASSISTANT] hello.py 파일을 생성했습니다.
+[14:44:50.640] [INFO] [DONE] Status: success, Duration: 10970ms
+[14:44:52.929] [END] === Task Completed Successfully ===
+```
+
+### AutoGen Studio에서 CLI Agent 사용
+
+1. Team Builder에서 cli_db_agent 또는 cli_backend_agent 추가
+2. Selector 패턴으로 작업 유형에 따라 자동 라우팅
+3. 작업 완료 시 TASK_COMPLETE 반환
+
 ## 디렉토리 구조
 
 ```
@@ -815,6 +898,8 @@ curl -X POST http://localhost:8006 -H "Content-Type: application/json" -d "{\"js
 | 8007 | math_agent | A2A 수학 전문가 에이전트 |
 | 8008 | graphics_agent | A2A 컴퓨터 그래픽스 에이전트 |
 | 8009 | gpu_agent | A2A GPU/병렬컴퓨팅 에이전트 |
+| 8110 | cli_db_agent | CLI 에이전트 (db/ 폴더) - Claude Code 기반 |
+| 8111 | cli_backend_agent | CLI 에이전트 (backend/ 폴더) - Claude Code 기반 |
 
 ## 한 번에 모든 서비스 실행
 
@@ -1430,6 +1515,14 @@ http://localhost:8081
 ```
 
 ## Changelog
+
+### 2025-01-11
+- ✨ **CLI Agent**: Claude Code 기반 CLI 에이전트 추가
+  - 6개 도구 지원: Read, Write, Edit, Glob, Grep, Bash
+  - 모듈화 구조: config.py, tools/, utils/
+  - Stream-JSON 파싱으로 실시간 로그 캡처
+  - AutoGen Studio 패턴과 완벽 통합
+  - 포트: 8110 (db), 8111 (backend)
 
 ### 2025-01-10
 - 🐛 **Bug Fix**: `allow_repeated_speaker` 버그 수정
