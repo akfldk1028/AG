@@ -122,7 +122,7 @@ def generate_function_code(agent_name: str, description: str, base_url: str, ski
             A2A_SERVER_URL,
             json=payload,
             headers={{"Content-Type": "application/json"}},
-            timeout=60
+            timeout=300
         )
         result = response.json()
 
@@ -197,7 +197,7 @@ async def import_from_agent_card(request: A2AImportRequest) -> A2AImportResponse
                 "name": safe_name,
                 "a2a_server_url": base_url,
                 "description": description,
-                "timeout": 60,
+                "timeout": 300,
                 "skills": skills
             }
         }

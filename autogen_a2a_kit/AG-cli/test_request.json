@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "test-1",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "messageId": "m1",
+      "role": "user",
+      "parts": [{"type": "text", "text": "db 폴더에 log_test.py 파일을 만들어. 내용은 print(\"Log test OK!\") 한 줄이면 돼."}]
+    }
+  }
+}

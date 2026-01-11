@@ -23,6 +23,7 @@ class RegisteredAgent(BaseModel):
     registered_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     last_checked: Optional[str] = Field(default=None, description="마지막 상태 확인 시간")
     is_online: bool = Field(default=False, description="온라인 상태")
+    timeout: int = Field(default=300, description="A2A 호출 타임아웃 (초) - CLI 에이전트용 5분")
 
 
 class A2ARegistry:
@@ -258,7 +259,7 @@ class A2ARegistry:
                 "name": agent.name,
                 "a2a_server_url": agent.url,
                 "description": agent.description,
-                "timeout": 60,
+                "timeout": agent.timeout,  # 레지스트리에서 timeout 사용 (기본 300초)
                 "skills": agent.skills
             }
         }

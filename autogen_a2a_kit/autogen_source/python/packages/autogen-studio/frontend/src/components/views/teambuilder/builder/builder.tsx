@@ -455,7 +455,9 @@ export const TeamBuilder: React.FC<TeamBuilderProps> = ({
               type="primary"
               icon={<PlayCircle size={18} />}
               className="p-1.5 ml-2 px-2.5 hover:bg-primary/10 rounded-md text-primary/75 hover:text-primary"
-              onClick={() => {
+              onClick={async () => {
+                // Save team before running to ensure A2A agents are persisted
+                await handleSave();
                 setTestDrawerVisible(true);
               }}
             >

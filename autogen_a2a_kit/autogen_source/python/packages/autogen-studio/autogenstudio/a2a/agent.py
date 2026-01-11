@@ -26,7 +26,7 @@ class A2AAgentConfig(BaseModel):
     name: str = Field(description="에이전트 이름")
     a2a_server_url: str = Field(description="A2A 서버 URL (예: http://localhost:8002)")
     description: str = Field(default="A2A 프로토콜 에이전트", description="에이전트 설명")
-    timeout: int = Field(default=60, description="요청 타임아웃 (초)")
+    timeout: int = Field(default=300, description="요청 타임아웃 (초) - Claude CLI 작업용 5분")
     skills: List[dict] = Field(default_factory=list, description="에이전트 스킬 목록")
 
 
@@ -60,7 +60,7 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
         name: str,
         a2a_server_url: str,
         description: str = "A2A 프로토콜 에이전트",
-        timeout: int = 60,
+        timeout: int = 300,
         skills: Optional[List[dict]] = None,
     ):
         super().__init__(name=name, description=description)
@@ -105,12 +105,36 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
                 if "result" in result:
                     res = result["result"]
 
+                    # ★ status.state 처리 (A2A 프로토콜 핵심!)
+                    # states: completed, working, failed, input_required, submitted, rejected
+                    task_state = None
+                    if "status" in res:
+                        task_state = res["status"].get("state")
+                        logger.info(f"A2A task state: {task_state}")
+
+                        # 실패 상태 처리
+                        if task_state == "failed":
+                            error_msg = res["status"].get("error", {}).get("message", "알 수 없는 오류")
+                            return f"[A2A 작업 실패] {error_msg}"
+
+                        # input_required 상태 처리
+                        if task_state == "input_required":
+                            return "[A2A] 추가 입력이 필요합니다. 구체적인 요청을 해주세요."
+
+                        # rejected 상태 처리
+                        if task_state == "rejected":
+                            return "[A2A] 요청이 거부되었습니다."
+
                     # 형식 1: artifacts (표준 A2A 응답)
                     if "artifacts" in res:
                         for artifact in res["artifacts"]:
                             for part in artifact.get("parts", []):
                                 if "text" in part:
-                                    return part["text"]
+                                    text = part["text"]
+                                    # completed 상태면 결과 반환
+                                    if task_state == "completed":
+                                        return f"[완료] {text}"
+                                    return text
 
                     # 형식 2: status.message (Google ADK 응답 형식)
                     # 에이전트 응답은 history가 아닌 status.message에 있음!
@@ -119,6 +143,9 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
                         for part in status_msg.get("parts", []):
                             text = part.get("text")
                             if text:
+                                # completed 상태면 결과 반환
+                                if task_state == "completed":
+                                    return f"[완료] {text}"
                                 return text
 
                     # 형식 3: history (대화 기록 형식 - fallback)
@@ -131,7 +158,17 @@ class A2AAgent(BaseChatAgent, Component[A2AAgentConfig]):
                                 for part in msg.get("parts", []):
                                     text = part.get("text")
                                     if text:
+                                        if task_state == "completed":
+                                            return f"[완료] {text}"
                                         return text
+
+                    # completed 상태인데 텍스트가 없는 경우
+                    if task_state == "completed":
+                        return "[완료] 작업이 성공적으로 완료되었습니다."
+
+                    # working 상태 (아직 진행 중)
+                    if task_state == "working":
+                        return "[진행 중] 작업이 아직 진행 중입니다..."
 
                 if "error" in result:
                     return f"A2A 에러: {result['error']}"
