@@ -50,25 +50,31 @@ const generateDynamicSelectorPrompt = (
 
   // Pattern-specific prompt templates
   const promptTemplates: Record<string, string> = {
-    debate: `You are coordinating a multi-agent debate. You MUST rotate between different agents.
+    debate: `You are a debate moderator ensuring FAIR speaking opportunities.
 
 Available Agents:
 ${agentList}
 
-CRITICAL RULES:
-1. **NEVER select the same agent twice in a row** - you MUST choose a DIFFERENT agent than the last speaker
-2. Each agent must take turns presenting their unique perspective
-3. Ensure ALL agents participate by rotating through them fairly
-4. If Agent A just spoke, select Agent B or Agent C next - NEVER Agent A again
+=== STEP 1: COUNT SPEAKER TURNS ===
+Analyze the conversation history and count how many times each agent has spoken.
 
-Based on the conversation history, select the NEXT speaker (must be different from the last one).
-Consider:
-- Who just spoke? Select someone DIFFERENT
-- Has everyone had a chance to speak?
-- Whose expertise complements the current discussion?
+=== STEP 2: BALANCE CHECK ===
+Find the agent with FEWEST turns.
+If the difference between most and least is >= 2 → SELECT the least-spoken agent (MANDATORY!)
+
+=== STEP 3: SELECTION RULES ===
+1. [MUST] Select someone DIFFERENT from the last speaker
+2. [MUST] Prioritize the agent with FEWEST turns
+3. [MUST] If any agent has 0 turns, select them immediately
+4. [EXCEPTION] If all agents have spoken 2+ times, balanced selection OK
+
+=== EXAMPLES ===
+- AgentA:3, AgentB:1, AgentC:2 → Select AgentB (fewest turns)
+- AgentA:2, AgentB:2, AgentC:0 → Select AgentC (0 turns!)
+- AgentA:2, AgentB:2, AgentC:2 → Free selection (balanced)
 
 Available agents: ${names}
-Return ONLY the agent name, nothing else. The agent MUST be different from the last speaker.`,
+Return ONLY the agent name:`,
 
     selector: `You are a smart agent selector.
 
