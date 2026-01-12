@@ -1,5 +1,4 @@
-
-프론트엔드 또 안도한번도    # AG_Cohub - Multi-Agent Collaboration Patterns
+# AG_Cohub - Multi-Agent Collaboration Patterns
 
 AI 에이전트 오케스트레이션을 위한 멀티 에이전트 협업 패턴 종합 컬렉션입니다.
 
@@ -7,11 +6,25 @@ AI 에이전트 오케스트레이션을 위한 멀티 에이전트 협업 패�
 
 ## FOR AI ASSISTANTS - START HERE
 
+> **📖 전체 문서 색인**: [`../DOCS_INDEX.md`](../DOCS_INDEX.md) - 모든 문서 목록 및 읽기 순서
+>
 > **이 섹션을 먼저 읽으세요!** AI가 이 프로젝트를 빠르게 이해하도록 설계되었습니다.
+
+### 🚨 CLI 에이전트 작업 시 필독!
+
+**CLI A2A 에이전트** (Claude Code 기반) 관련 작업이면 **먼저** 이 문서를 읽으세요:
+- 📖 **`AG_Cohub/CLI_AGENT_GUIDE.md`** - CLI 에이전트 완전 가이드
+  - 패턴 호환성 테스트 결과
+  - Hierarchical 패턴 실패 원인 (handoff 미지원)
+  - Pseudo-Hierarchical 패턴 구현
+  - Debate 균형 로직 설명
 
 ### 다음에 읽어야 할 파일들 (순서대로)
 
 ```
+Phase 0: CLI 에이전트 (선택적)
+0. AG_Cohub/CLI_AGENT_GUIDE.md - CLI 에이전트 전용 가이드 ⭐
+
 Phase 1: 패턴 시스템 이해
 1. 이 파일 (AG_Cohub/README.md) - 전체 개요
 2. AG_Cohub/patterns/README.md - 패턴 JSON 포맷 이해
@@ -422,4 +435,5 @@ User: "인공지능의 미래에 대해 토론해주세요"
 
 ---
 
-*Last Updated: 2025-01-09*
+*Last Updated: 2025-01-11*
+*CLI Agent Guide Added: 2025-01-11*

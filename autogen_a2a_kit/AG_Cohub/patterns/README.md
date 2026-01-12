@@ -59,17 +59,27 @@ Swarm (핸드오프):
 
 ## 파일 목록
 
-| 파일 | 패턴 | Provider | 핵심 설정 |
-|------|------|----------|----------|
-| `01_sequential.json` | Sequential | RoundRobinGroupChat | 없음 (고정 순서) |
-| `02_concurrent.json` | Concurrent | Custom | asyncio 병렬 |
-| `03_selector.json` | Selector | SelectorGroupChat | selector_prompt |
-| `04_group_chat.json` | Group Chat | SelectorGroupChat | selector_prompt |
-| `05_handoff.json` | Handoff | Swarm | handoffs |
-| `06_magentic.json` | Magentic-One | MagenticOneGroupChat | 오케스트레이터 |
-| `07_debate.json` | Debate | SelectorGroupChat | selector_prompt |
-| `08_reflection.json` | Reflection | RoundRobinGroupChat | 없음 |
-| `09_hierarchical.json` | Hierarchical | Nested Teams | 중첩 팀 |
+| 파일 | 패턴 | Provider | 핵심 설정 | CLI 호환 |
+|------|------|----------|----------|----------|
+| `01_sequential.json` | Sequential | RoundRobinGroupChat | 없음 (고정 순서) | ✅ |
+| `02_concurrent.json` | Concurrent | Custom | asyncio 병렬 | ⚠️ |
+| `03_selector.json` | Selector | SelectorGroupChat | selector_prompt | ✅ |
+| `04_group_chat.json` | Group Chat | SelectorGroupChat | selector_prompt | ✅ |
+| `05_handoff.json` | Handoff | Swarm | handoffs | ❌ |
+| `06_magentic.json` | Magentic-One | MagenticOneGroupChat | 오케스트레이터 | ⚠️ |
+| `07_debate.json` | Debate | SelectorGroupChat | selector_prompt + 균형로직 | ✅ |
+| `08_reflection.json` | Reflection | RoundRobinGroupChat | 없음 | ✅ |
+| `09_hierarchical.json` | Hierarchical | Swarm | handoffs | ❌ |
+| `11_cli_collaboration.json` | CLI Collaboration | SelectorGroupChat | CLI 협업 | ✅ |
+| `11_code_execution.json` | Code Execution | SelectorGroupChat | 코드 실행 | ✅ |
+| `12_pseudo_hierarchical.json` | **Pseudo-Hierarchical** | SelectorGroupChat | **CLI 호환 계층** | ✅ |
+
+### CLI 에이전트 호환성 범례
+- ✅ 완전 호환 - 테스트 완료
+- ⚠️ 제한적 - 추가 설정 필요
+- ❌ 미호환 - handoff 미지원 (CLI A2A는 Google ADK 기반, FunctionTool만 지원)
+
+> **자세한 CLI 호환성 분석**: `AG_Cohub/CLI_AGENT_GUIDE.md` 참조
 
 ---
 
@@ -276,4 +286,5 @@ chat.tsx → WebSocket → Backend
 
 ---
 
-*Last Updated: 2025-01-09*
+*Last Updated: 2025-01-11*
+*CLI Compatibility Added: 2025-01-11*

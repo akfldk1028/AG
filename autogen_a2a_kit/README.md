@@ -6,6 +6,8 @@ Microsoft AutoGen과 Google A2A(Agent-to-Agent) 프로토콜을 연동한 멀티
 
 ## FOR AI ASSISTANTS - 반드시 먼저 읽으세요!
 
+> **📖 전체 문서 색인**: [`DOCS_INDEX.md`](./DOCS_INDEX.md) - 모든 문서 목록 및 읽기 순서
+>
 > **CRITICAL**: 이 섹션을 완전히 이해한 후 작업하세요. 여기서 설명하는 `name`과 `description` 필드가 **전체 시스템의 핵심**입니다!
 
 ### 30초 핵심 이해

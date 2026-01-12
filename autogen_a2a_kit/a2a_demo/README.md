@@ -7,6 +7,8 @@ A2A (Agent-to-Agent) 프로토콜 기반 데모 에이전트 컬렉션.
 
 ## FOR AI ASSISTANTS - 필수 이해사항
 
+> **📖 전체 문서 색인**: [`../DOCS_INDEX.md`](../DOCS_INDEX.md) - 모든 문서 목록 및 읽기 순서
+>
 > **이 섹션을 먼저 읽고 전체 구조를 파악하세요.**
 
 ### 핵심 개념 한눈에 보기
@@ -98,12 +100,29 @@ a2a_demo/
 │   └── agent.py
 ├── poetry_agent/          # 시 분석 에이전트 (포트 8003)
 │   └── agent.py
+├── math_agent/            # 수학 전문 에이전트 (포트 8007)
+│   └── agent.py
+├── graphics_agent/        # 컴퓨터 그래픽스 에이전트 (포트 8008)
+│   └── agent.py
+├── gpu_agent/             # GPU/병렬컴퓨팅 에이전트 (포트 8009)
+│   └── agent.py
 ├── root_agent/            # 루트/오케스트레이터 에이전트
 │   └── agent.py
 ├── remote_agent/          # 원격 에이전트 예제 (포트 8002)
 │   └── agent.py
 └── start_server.bat       # 일괄 실행 스크립트
 ```
+
+### 🔧 CLI 에이전트 (Claude Code 기반)
+
+> **별도 폴더**: `AG-cli/studio/`에 위치
+
+| 에이전트 | 포트 | 작업 폴더 | 도구 |
+|---------|------|----------|------|
+| cli_db_agent | 8110 | db/ | Read, Write, Edit, Glob, Grep, Bash |
+| cli_backend_agent | 8111 | backend/ | Read, Write, Edit, Glob, Grep, Bash |
+
+> **CLI 에이전트 상세**: `AG_Cohub/CLI_AGENT_GUIDE.md` 참조
 
 ## 에이전트 상세
 
@@ -519,3 +538,17 @@ curl -X POST http://localhost:8005 \
 - [A2A Protocol Spec](https://github.com/google/a2a)
 - [Google ADK](https://github.com/google/adk-python)
 - [AutoGen](https://github.com/microsoft/autogen)
+
+---
+
+## 🔗 관련 문서
+
+| 문서 | 내용 |
+|------|------|
+| **AG_Cohub/CLI_AGENT_GUIDE.md** | CLI 에이전트 완전 가이드 (패턴 호환성) |
+| **AG-cli/README.md** | Multi-Claude 자동 코딩 시스템 |
+| **AG_Cohub/README.md** | 패턴 시스템 개요 |
+
+---
+
+*Last Updated: 2025-01-11*

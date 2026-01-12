@@ -1,5 +1,7 @@
 # AG-CLI: Multi-Claude Autonomous Coding System
 
+> **📖 전체 문서 색인**: [`../DOCS_INDEX.md`](../DOCS_INDEX.md) - 모든 문서 목록 및 읽기 순서
+>
 > **비전**: 각 A2A 에이전트가 Claude CLI 인스턴스가 되어, 폴더별 전문성을 가지고 협업하여 자동으로 프로젝트를 생성하는 시스템
 
 ---
@@ -548,6 +550,32 @@ AG-cli/
 
 ---
 
+---
+
+## 🔗 관련 문서
+
+| 문서 | 내용 |
+|------|------|
+| **AG_Cohub/CLI_AGENT_GUIDE.md** | ⭐ CLI 에이전트 완전 가이드 (패턴 호환성, 트러블슈팅) |
+| **AG_Cohub/patterns/12_pseudo_hierarchical.json** | Hierarchical 대안 패턴 |
+| **AG_Cohub/patterns/07_debate.json** | 균형 로직 포함 Debate 패턴 |
+
+### CLI 에이전트 패턴 호환성 요약
+
+| 패턴 | 호환 | 이유 |
+|------|------|------|
+| Sequential | ✅ | RoundRobinGroupChat |
+| Selector | ✅ | SelectorGroupChat |
+| Reflection | ✅ | RoundRobinGroupChat |
+| Debate | ✅ | SelectorGroupChat + 균형로직 |
+| Code Execution | ✅ | SelectorGroupChat |
+| **Hierarchical** | ❌ | Swarm - handoff 미지원 |
+| **Pseudo-Hierarchical** | ✅ | SelectorGroupChat (대안) |
+
+> **상세 분석**: `AG_Cohub/CLI_AGENT_GUIDE.md` 참조
+
+---
+
 *Created: 2025-01-10*
-*Updated: 2025-01-10*
+*Updated: 2025-01-11*
 *Author: Claude Code*
