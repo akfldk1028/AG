@@ -1,0 +1,59 @@
+# AG_action - ESLint Action
+name: eslint
+category: lint
+description: "ESLint 코드 검사 및 자동 수정"
+
+triggers:
+  - "린트"
+  - "eslint"
+  - "코드 검사"
+  - "lint fix"
+
+tags:
+  - "lint"
+  - "eslint"
+  - "javascript"
+  - "typescript"
+
+execution:
+  type: direct
+  working_dir: "."
+
+  command: "npx eslint . ${fix_flag} --format stylish"
+
+  timeout: 120
+  retry: 0
+
+params:
+  - name: "fix"
+    type: boolean
+    required: false
+    default: true
+    description: "자동 수정 여부"
+    # fix_flag = "--fix" if fix else ""
+
+  - name: "path"
+    type: string
+    required: false
+    default: "."
+    description: "검사할 경로"
+
+advanced:
+  pre_check:
+    - path: ".eslintrc"
+      exists: true
+      alt_paths: [".eslintrc.js", ".eslintrc.json", "eslint.config.js", "eslint.config.mjs"]
+      message: "ESLint 설정 파일 없음"
+
+  on_failure:
+    notify: false  # 린트 에러는 정상적인 결과
+    capture_output: true
+
+outputs:
+  - name: "lint_result"
+    capture: stdout
+    type: text
+
+  - name: "error_count"
+    extract_pattern: "(\\d+) errors?"
+    type: number

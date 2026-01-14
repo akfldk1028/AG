@@ -1,0 +1,77 @@
+# AG_action - Unit Test Action
+name: unit_test
+category: test
+description: "유닛 테스트 실행 (Jest/Vitest/pytest 자동 감지)"
+
+triggers:
+  - "테스트"
+  - "unit test"
+  - "npm test"
+  - "pytest"
+  - "테스트 실행"
+
+tags:
+  - "test"
+  - "jest"
+  - "vitest"
+  - "pytest"
+
+execution:
+  type: direct
+  working_dir: "."
+
+  # 프레임워크 자동 감지
+  detect_test_framework: true
+
+  commands:
+    - "${TEST_CMD}"  # npm test / pytest / vitest
+
+  timeout: 300
+  retry: 0
+
+  env:
+    CI: "true"
+    NODE_ENV: "test"
+
+params:
+  - name: "filter"
+    type: string
+    required: false
+    description: "테스트 파일/이름 필터"
+
+  - name: "coverage"
+    type: boolean
+    required: false
+    default: true
+    description: "커버리지 리포트 생성"
+
+  - name: "watch"
+    type: boolean
+    required: false
+    default: false
+    description: "Watch 모드"
+
+advanced:
+  pre_check:
+    - path: "package.json"
+      exists: true
+      alt_paths: ["pytest.ini", "pyproject.toml", "vitest.config.ts"]
+
+  post_check:
+    - path: "coverage/"
+      exists: true
+      optional: true
+
+  on_failure:
+    notify: true
+    capture_output: true
+
+outputs:
+  - name: "test_result"
+    capture: stdout
+    type: text
+
+  - name: "coverage_report"
+    path: "coverage/"
+    type: directory
+    optional: true

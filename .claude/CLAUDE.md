@@ -6,12 +6,13 @@ A2A 에이전트를 사용하려면 **반드시** 서버를 먼저 실행해야 
 에러 메시지 `A2A 호출 실패: All connection attempts failed` → A2A 서버 미실행!
 
 ### 에이전트 포트 정보
-| Agent | Port | 경로 |
-|-------|------|------|
-| poetry_agent | 8003 | a2a_demo/poetry_agent/agent.py |
-| philosophy_agent | 8004 | a2a_demo/philosophy_agent/agent.py |
-| history_agent | 8005 | a2a_demo/history_agent/agent.py |
-| calculator_agent | 8006 | a2a_demo/calculator_agent/agent.py |
+| Agent | Port | 경로 | 설명 |
+|-------|------|------|------|
+| poetry_agent | 8003 | a2a_demo/poetry_agent/agent.py | 시/문학 |
+| philosophy_agent | 8004 | a2a_demo/philosophy_agent/agent.py | 철학 |
+| history_agent | 8005 | a2a_demo/history_agent/agent.py | 역사 |
+| calculator_agent | 8006 | a2a_demo/calculator_agent/agent.py | 계산 |
+| **gui_test_agent** | 8120 | a2a_demo/gui_test_agent/agent.py | **GUI 자동화 (PyAutoGUI)** |
 
 ### 서버 시작 명령 (PowerShell)
 ```powershell
@@ -20,6 +21,9 @@ powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit', '-Com
 powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\philosophy_agent; python agent.py'"
 powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\history_agent; python agent.py'"
 powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\calculator_agent; python agent.py'"
+
+# GUI Test Agent (PyAutoGUI 기반)
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd D:\Data\22_AG\autogen_a2a_kit\a2a_demo\gui_test_agent; python agent.py'"
 ```
 
 ## 2. Google ADK 모델명 형식

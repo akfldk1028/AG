@@ -1,0 +1,20 @@
+# AG-mcp PyAutoGUI MCP Server
+# 가상환경에서 설치: pip install -r requirements.txt
+
+# MCP (Model Context Protocol)
+mcp>=1.0.0
+
+# GUI Automation
+pyautogui>=0.9.54
+
+# Image Processing
+Pillow>=10.0.0
+
+# Type hints & validation
+pydantic>=2.0.0
+
+# Async support
+anyio>=4.0.0
+
+# AG_action dependencies
+pyyaml>=6.0.0

@@ -29,6 +29,22 @@ from autogenstudio.datamodel import GalleryComponents, GalleryConfig, GalleryMet
 
 from . import tools as tools
 
+# AG_action Integration (graceful degradation if not available)
+try:
+    from autogenstudio.ag_action import (
+        AG_ACTION_AVAILABLE,
+        execute_action_tool,
+        list_actions_tool,
+        get_action_info_tool,
+        create_ag_action_agent,
+    )
+except ImportError:
+    AG_ACTION_AVAILABLE = False
+    execute_action_tool = None
+    list_actions_tool = None
+    get_action_info_tool = None
+    create_ag_action_agent = None
+
 
 class GalleryBuilder:
     """Enhanced builder class for creating AutoGen component galleries with custom labels."""
@@ -587,6 +603,51 @@ Read the above conversation. Then select the next role from {participants} to pl
         label="MCP Test Server",
         description="An MCP workbench that provides comprehensive testing tools using the @modelcontextprotocol/server-everything MCP server. Includes various tools for testing MCP functionality, protocol features, and capabilities.",
     )
+
+    # ===========================================================================
+    # AG_action Integration (Direct Action Tools)
+    # ===========================================================================
+    if AG_ACTION_AVAILABLE and execute_action_tool is not None:
+        # Add AG_action tools
+        builder.add_tool(
+            execute_action_tool.dump_component(),
+            label="Execute Action Tool",
+            description="Execute Direct Actions (build, test, lint, deploy) without LLM. Fast and deterministic subprocess execution.",
+        )
+        builder.add_tool(
+            list_actions_tool.dump_component(),
+            label="List Actions Tool",
+            description="List available Direct Actions. Filter by category: build, test, lint, git, deploy.",
+        )
+        builder.add_tool(
+            get_action_info_tool.dump_component(),
+            label="Get Action Info Tool",
+            description="Get detailed information about a specific Action including execution config and parameters.",
+        )
+
+        # Create AG_action Agent
+        action_agent = create_ag_action_agent(base_model)
+        builder.add_agent(
+            action_agent.dump_component(),
+            label="Action Agent (AG_action)",
+            description="Direct Action executor for build, test, lint, and deploy tasks. Uses AG_action module for fast, deterministic execution without LLM overhead.",
+        )
+
+        # Create Action Agent Team (standalone)
+        action_term = TextMentionTermination(text="TERMINATE") | MaxMessageTermination(max_messages=10)
+        action_team = RoundRobinGroupChat(
+            participants=[action_agent],
+            termination_condition=action_term,
+        )
+        builder.add_team(
+            action_team.dump_component(),
+            label="Action Agent Team",
+            description="A team with a single Action Agent for executing Direct Actions (build, test, lint, deploy). Fast and deterministic.",
+        )
+
+        print("  AG_action tools and agent added to gallery")
+    else:
+        print("  AG_action not available - skipping")
 
     return builder.build()
 

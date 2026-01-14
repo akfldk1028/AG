@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ag-action/schemas/action.schema.json",
+  "title": "AG_action Action Schema",
+  "description": "YAML Action 정의 스키마 (3-Layer Progressive Disclosure)",
+  "type": "object",
+  "required": ["name", "category", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Action 고유 이름 (snake_case)",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "category": {
+      "type": "string",
+      "description": "Action 카테고리",
+      "enum": ["git", "build", "test", "lint", "deploy", "db", "custom"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Action 설명"
+    },
+    "triggers": {
+      "type": "array",
+      "description": "트리거 키워드 목록",
+      "items": { "type": "string" }
+    },
+    "tags": {
+      "type": "array",
+      "description": "태그 목록",
+      "items": { "type": "string" }
+    },
+    "execution": {
+      "type": "object",
+      "description": "Layer 2: 실행 정보",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["direct", "claude_cli", "hybrid"],
+          "description": "실행 타입"
+        },
+        "working_dir": {
+          "type": "string",
+          "default": "."
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "command": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 1
+        },
+        "retry": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "params": {
+      "type": "array",
+      "description": "파라미터 목록",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["string", "boolean", "integer", "number", "array", "object"]
+          },
+          "required": { "type": "boolean", "default": false },
+          "default": {},
+          "description": { "type": "string" },
+          "options": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "hybrid": {
+      "type": "object",
+      "description": "Hybrid 실행 설정 (Claude CLI 연동)",
+      "properties": {
+        "condition": { "type": "string" },
+        "claude_task": { "type": "string" },
+        "output_param": { "type": "string" }
+      }
+    },
+    "advanced": {
+      "type": "object",
+      "description": "Layer 3: 상세 설정",
+      "properties": {
+        "pre_check": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "command": { "type": "string" },
+              "expect_success": { "type": "boolean" },
+              "expect_not_empty": { "type": "boolean" },
+              "message": { "type": "string" }
+            }
+          }
+        },
+        "post_check": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "command": { "type": "string" },
+              "capture": { "type": "string" }
+            }
+          }
+        },
+        "on_failure": {
+          "type": "object",
+          "properties": {
+            "notify": { "type": "boolean" },
+            "suggest": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "description": "출력 정의",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "command": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["text", "json", "boolean", "number"]
+          }
+        }
+      }
+    }
+  }
+}

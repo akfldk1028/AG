@@ -5,6 +5,53 @@ AI 어시스턴트는 이 파일부터 읽으세요!
 
 ---
 
+## 🚀 QUICK START (5분 안에 실행!)
+
+### 1단계: 환경 설정
+```powershell
+cd D:\Data\22_AG\autogen_a2a_kit
+
+# .env 파일 생성 (API 키 설정)
+copy .env.example .env
+# .env 파일 열어서 OPENAI_API_KEY 입력!
+```
+
+### 2단계: 의존성 설치
+```powershell
+pip install -r requirements.txt
+```
+
+### 3단계: A2A 에이전트 시작 (8개)
+```powershell
+# 모든 에이전트 일괄 시작
+start_all_agents.bat
+```
+
+### 4단계: AutoGen Studio 시작
+```powershell
+# 새 터미널에서
+start_studio.bat
+```
+
+### 5단계: 접속
+- **Studio**: http://127.0.0.1:8081
+- **A2A Registry**: http://127.0.0.1:8081/api/a2a/registry
+
+### 포트 요약
+| Agent | Port |
+|-------|------|
+| poetry_agent | 8003 |
+| philosophy_agent | 8004 |
+| history_agent | 8005 |
+| calculator_agent | 8006 |
+| math_agent | 8007 |
+| graphics_agent | 8008 |
+| gpu_agent | 8009 |
+| **gui_test_agent** | **8120** |
+| **Studio** | **8081** |
+
+---
+
 ## FOR AI ASSISTANTS - 읽기 순서
 
 ```
@@ -63,7 +110,53 @@ AI 어시스턴트는 이 파일부터 읽으세요!
 | 파일 | 설명 | 핵심 내용 |
 |------|------|----------|
 | **`a2a_demo/README.md`** | A2A 에이전트 예제 | Calculator, Poet, History |
+| `a2a_demo/gui_test_agent/` | **GUI 테스트 에이전트** | PyAutoGUI 기반, 포트 8120 |
 | `AG-cli/docs/A2A_INTEGRATION.md` | A2A 통합 가이드 | FunctionTool 호출 흐름 |
+
+---
+
+### 🖥️ AG-mcp (MCP 서버) - NEW!
+
+> Claude Code용 MCP 서버 (API Key 불필요!)
+
+| 파일 | 설명 | 핵심 내용 |
+|------|------|----------|
+| **`AG-mcp/README.md`** | ⭐ PyAutoGUI MCP 개요 | 설치, 사용법, 도구 목록 |
+| `AG-mcp/pyautogui_mcp/server.py` | MCP 서버 본체 | 12개 도구 (스크린샷, 마우스, 키보드) |
+| `AG-mcp/pyautogui_mcp/config.py` | 설정 파일 | AG_action 경로 설정 |
+| `AG-mcp/setup_venv.bat` | 가상환경 설정 | 최초 1회 실행 |
+| `AG-mcp/start_mcp.bat` | MCP 시작 스크립트 | Claude Code 연동용 |
+
+**MCP 도구 12개**:
+- `screenshot`, `screenshot_scaled` - 화면 캡처
+- `mouse_click`, `mouse_move`, `mouse_drag`, `mouse_scroll` - 마우스
+- `keyboard_type`, `keyboard_key`, `keyboard_hotkey` - 키보드
+- `locate_image` - 이미지로 UI 요소 찾기
+- `get_screen_size`, `get_pixel_color` - 화면 정보
+
+**Claude Code 연동**:
+```bash
+claude mcp add pyautogui-mcp "D:\Data\22_AG\autogen_a2a_kit\AG-mcp\start_mcp.bat"
+```
+
+---
+
+### ⚡ AG_action (모듈형 Action 시스템) - NEW!
+
+> 빌드, 테스트, 배포 등 반복 작업 자동화
+
+| 파일 | 설명 | 핵심 내용 |
+|------|------|----------|
+| **`AG_action/README.md`** | ⭐ Action 시스템 개요 | 아키텍처, 연구 기반 |
+| `AG_action/docs/ACTION_SPEC.md` | Action YAML 스펙 | 3-Layer Progressive Disclosure |
+| `AG_action/docs/STUDIO_INTEGRATION.md` | Studio 연동 가이드 | A2A 등록, 패턴 통합 |
+| `AG_action/actions/*.yaml` | Action 정의 파일들 | build, test, lint, git |
+
+**Action 작업시 필수 읽기**: `AG_action/README.md` → `ACTION_SPEC.md`
+
+**연구 기반**:
+- [arXiv 2512.08769](https://arxiv.org/abs/2512.08769) - Production-Grade Agentic AI
+- [wshobson/agents](https://github.com/wshobson/agents) - 99 agents, 107 skills
 
 ---
 
@@ -136,7 +229,37 @@ autogen_a2a_kit/
 │       └── MAINTAINER_GUIDE.md      # 유지보수
 │
 ├── a2a_demo/
-│   └── README.md                    # A2A 예제
+│   ├── README.md                    # A2A 예제
+│   ├── gui_test_agent/              # 🖥️ GUI 테스트 에이전트 (포트 8120)
+│   ├── calculator_agent/            # 계산기 (포트 8006)
+│   ├── poetry_agent/                # 시/문학 (포트 8003)
+│   ├── philosophy_agent/            # 철학 (포트 8004)
+│   ├── history_agent/               # 역사 (포트 8005)
+│   ├── math_agent/                  # 수학 (포트 8007)
+│   ├── graphics_agent/              # 그래픽스 (포트 8008)
+│   └── gpu_agent/                   # GPU (포트 8009)
+│
+├── AG-mcp/                          # 🖥️ MCP 서버 (NEW!)
+│   ├── README.md                    # 🌟 PyAutoGUI MCP 개요
+│   ├── pyautogui_mcp/
+│   │   ├── server.py                # MCP 서버 (12개 도구)
+│   │   ├── config.py                # 설정
+│   │   └── requirements.txt         # 의존성
+│   ├── setup_venv.bat               # 가상환경 설정
+│   └── start_mcp.bat                # MCP 시작
+│
+├── AG_action/                       # ⚡ 모듈형 Action 시스템 (NEW!)
+│   ├── README.md                    # 🌟 Action 시스템 개요
+│   ├── docs/
+│   │   ├── ACTION_SPEC.md           # Action YAML 스펙
+│   │   └── STUDIO_INTEGRATION.md    # Studio 연동
+│   ├── actions/                     # Action 정의 (YAML)
+│   │   ├── build/                   # 빌드 Actions
+│   │   ├── test/                    # 테스트 Actions
+│   │   ├── lint/                    # 린트 Actions
+│   │   └── git/                     # Git Actions
+│   ├── registry/                    # Action Registry
+│   └── agents/                      # A2A Action Agent
 │
 └── autogen_source/.../autogen-studio/
     ├── README.md                    # 원본 AutoGen Studio
@@ -157,6 +280,10 @@ autogen_a2a_kit/
 | **전체 이해** | CLAUDE.md → 이 파일 → 관심 섹션 순회 |
 | **Frontend 수정** | CLAUDE.md → autogen_source 섹션 → frontend/ |
 | **Backend 수정** | CLAUDE.md → autogen_source 섹션 → autogenstudio/ |
+| **Action 추가** | AG_action/README.md → ACTION_SPEC.md → actions/ |
+| **빌드/테스트 자동화** | AG_action/README.md → STUDIO_INTEGRATION.md |
+| **GUI 테스트 에이전트** | AG-mcp/README.md → a2a_demo/gui_test_agent/ |
+| **MCP 서버 추가** | AG-mcp/README.md → setup_venv.bat → start_mcp.bat |
 
 ---
 
@@ -177,5 +304,22 @@ autogen_a2a_kit/
 
 ---
 
-*Last Updated: 2025-01-11*
-*Total Docs: 14 files (+ autogen_source 수정 파일들)*
+*Last Updated: 2026-01-13*
+*Total Docs: 20+ files (AG_action + AG-mcp + autogen_source 수정 파일들)*
+
+---
+
+## 📊 A2A 에이전트 포트 요약
+
+| Agent | Port | 설명 |
+|-------|------|------|
+| poetry_agent | 8003 | 시/문학 |
+| philosophy_agent | 8004 | 철학 |
+| history_agent | 8005 | 역사 |
+| calculator_agent | 8006 | 계산 |
+| math_agent | 8007 | 수학 |
+| graphics_agent | 8008 | 컴퓨터 그래픽스 |
+| gpu_agent | 8009 | GPU/병렬컴퓨팅 |
+| cli_db_agent | 8110 | Claude CLI - DB |
+| cli_backend_agent | 8111 | Claude CLI - Backend |
+| **gui_test_agent** | **8120** | **GUI 자동화 (PyAutoGUI)** |
