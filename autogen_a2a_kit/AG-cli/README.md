@@ -60,13 +60,13 @@
 from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition
 
 async for message in query(
-    prompt="frontend 폴더의 React 컴포넌트 구현해줘",
+    prompt="AG-Frontend 폴더의 React 컴포넌트 구현해줘",
     options=ClaudeAgentOptions(
         allowed_tools=["Read", "Write", "Edit", "Bash", "Glob"],
         agents={
-            "frontend-agent": AgentDefinition(
+            "AG-Frontend-agent": AgentDefinition(
                 description="React/TypeScript 전문가",
-                prompt="frontend/ 폴더만 수정. 다른 폴더 접근 금지.",
+                prompt="AG-Frontend/ 폴더만 수정. 다른 폴더 접근 금지.",
                 tools=["Read", "Write", "Edit", "Glob"]
             )
         }
@@ -222,7 +222,7 @@ claude -p "Continue task" --resume "$session_id"
    # AG-cli/agents/folder_agent.py
    class FolderSpecialistAgent:
        def __init__(self, folder: str, expertise: str):
-           self.folder = folder  # "frontend", "backend", etc.
+           self.folder = folder  # "AG-Frontend", "backend", etc.
            self.expertise = expertise  # "React/TypeScript", "FastAPI", etc.
 
        async def execute_task(self, task: str) -> str:
@@ -260,7 +260,7 @@ claude -p "Continue task" --resume "$session_id"
    class ProjectOrchestrator:
        def __init__(self):
            self.agents = {
-               "frontend": FolderSpecialistAgent("frontend", "React/TypeScript"),
+               "AG-Frontend": FolderSpecialistAgent("AG-Frontend", "React/TypeScript"),
                "backend": FolderSpecialistAgent("backend", "FastAPI/Python"),
                "db": FolderSpecialistAgent("db", "PostgreSQL/Migrations"),
                "tests": FolderSpecialistAgent("tests", "pytest/testing"),
@@ -293,7 +293,7 @@ from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 import subprocess
 
-def execute_claude_cli(task: str, folder: str = "frontend") -> dict:
+def execute_claude_cli(task: str, folder: str = "AG-Frontend") -> dict:
     """Claude CLI 실행하여 코드 생성"""
     cmd = [
         "claude", "-p", task,
@@ -305,7 +305,7 @@ def execute_claude_cli(task: str, folder: str = "frontend") -> dict:
 
 frontend_agent = Agent(
     name="frontend_agent",
-    description="React/TypeScript 전문가. frontend/ 폴더의 UI 코드 작성",
+    description="React/TypeScript 전문가. AG-Frontend/ 폴더의 UI 코드 작성",
     tools=[FunctionTool(execute_claude_cli)]
 )
 ```

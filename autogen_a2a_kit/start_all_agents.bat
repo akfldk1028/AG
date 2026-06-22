@@ -5,7 +5,7 @@ echo   A2A Agents Launcher (All)
 echo ============================================
 echo.
 
-cd /d D:\Data\22_AG\autogen_a2a_kit
+cd /d D:\Data\25_ACE\AG\autogen_a2a_kit
 
 REM .env 파일에서 OPENAI_API_KEY 로드
 if exist .env (
@@ -28,35 +28,35 @@ echo.
 
 REM Poetry Agent (8003)
 echo [1/8] Starting poetry_agent on port 8003...
-start "poetry_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\poetry_agent && python agent.py"
+start "poetry_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\poetry_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM Philosophy Agent (8004)
 echo [2/8] Starting philosophy_agent on port 8004...
-start "philosophy_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\philosophy_agent && python agent.py"
+start "philosophy_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\philosophy_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM History Agent (8005)
 echo [3/8] Starting history_agent on port 8005...
-start "history_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\history_agent && python agent.py"
+start "history_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\history_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM Calculator Agent (8006)
 echo [4/8] Starting calculator_agent on port 8006...
-start "calculator_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\calculator_agent && python agent.py"
+start "calculator_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\calculator_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM Math Agent (8007)
 echo [5/8] Starting math_agent on port 8007...
-start "math_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\math_agent && python agent.py"
+start "math_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\math_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM Graphics Agent (8008)
 echo [6/8] Starting graphics_agent on port 8008...
-start "graphics_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\graphics_agent && python agent.py"
+start "graphics_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\graphics_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM GPU Agent (8009)
 echo [7/8] Starting gpu_agent on port 8009...
-start "gpu_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\gpu_agent && python agent.py"
+start "gpu_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\gpu_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 REM GUI Test Agent (8120)
 echo [8/8] Starting gui_test_agent on port 8120...
-start "gui_test_agent" cmd /k "cd /d D:\Data\22_AG\autogen_a2a_kit\a2a_demo\gui_test_agent && python agent.py"
+start "gui_test_agent" cmd /k "cd /d D:\Data\25_ACE\AG\autogen_a2a_kit\a2a_demo\gui_test_agent && D:\Data\25_ACE\AG\autogen_a2a_kit\venv\Scripts\python.exe agent.py"
 
 echo.
 echo ============================================
@@ -73,6 +73,6 @@ echo   graphics_agent   : 8008
 echo   gpu_agent        : 8009
 echo   gui_test_agent   : 8120
 echo.
-echo Next: Run start_studio.bat to start AutoGen Studio
+echo Next: Run autogenstudio ui --port 8081
 echo.
 pause

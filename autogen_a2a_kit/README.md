@@ -502,9 +502,17 @@ A2A는 "누구와 협업할지" (외부 에이전트 연결)
 
 ```
 autogen_a2a_kit/
-├── AG_Cohub/                  ★ 패턴 시스템 (협업 방식)
+├── AG_Cohub/                  ★ 패턴 시스템 + Claude SDK
+│   ├── model_factory.py       AutoGen ChatCompletionClient (SDK 위임)
+│   ├── sdk/                   Claude Agent SDK 패키지 (7 모듈)
+│   │   ├── auth.py            OAuth 토큰 관리
+│   │   ├── config.py          ToolProfile, AgentConfig, PermissionMode
+│   │   ├── client.py          ClaudeSDK.query() + [TOOL EXECUTED] 마커
+│   │   ├── context.py         ProjectContext + ContextManager
+│   │   ├── hooks.py           quality/logging/budget/security
+│   │   └── tools.py           MCP 도구 스키마
 │   ├── patterns/              패턴 JSON 정의
-│   ├── templates/             TeamConfig 템플릿
+│   ├── templates/             TeamConfig 템플릿 (agent_config 포함)
 │   └── loader/                JSON→TypeScript 변환
 │
 ├── a2a_demo/                  ★ A2A 에이전트 서버들
@@ -1302,7 +1310,11 @@ curl http://localhost:8010/.well-known/agent-card.json
 
 ## 프론트엔드 개발 (UI 수정 시)
 
-> **중요**: 프론트엔드는 **Gatsby**로 빌드됩니다. Windows에서는 기본 `npm run build`가 작동하지 않으므로 아래 Windows 전용 명령어를 사용하세요.
+> **커스텀 프론트엔드**: `AG-frontend/` (Vite 7 + React 19 + Tailwind v4)을 사용합니다.
+> `cd AG-frontend && npm run dev` → http://localhost:5173 (proxy → :8081)
+> AutoGen Studio 내장 UI는 더 이상 직접 수정하지 않습니다.
+>
+> 아래 내용은 **AutoGen Studio 내장 UI (upstream 원본)** 참고용입니다.
 
 ### 1. 프론트엔드 소스 위치
 
@@ -1319,7 +1331,7 @@ autogen_source/python/packages/autogen-studio/frontend/
 ### 2. 의존성 설치 (최초 1회)
 
 ```bash
-cd autogen_source/python/packages/autogen-studio/frontend
+cd autogen_source/python/packages/autogen-studio/AG-Frontend
 npm install --legacy-peer-deps
 ```
 
@@ -1516,26 +1528,103 @@ autogenstudio ui --port 8081
 http://localhost:8081
 ```
 
+---
+
+## Claude Agent SDK (AG_Cohub/sdk/)
+
+> **2026-02-06 NEW**: `subprocess.run("claude -p")` 방식에서 `claude-agent-sdk` 패키지로 전환. 호출 시간 59s -> 15s.
+
+### SDK 패키지 구조
+
+```
+AG_Cohub/
+├── model_factory.py      ← Slim AutoGen ChatCompletionClient (SDK에 위임)
+└── sdk/                   ← 모듈화된 SDK 패키지
+    ├── auth.py            OAuth 토큰 (~/.claude/.credentials.json)
+    ├── config.py           ToolProfile, AgentConfig, PermissionMode
+    ├── client.py           ClaudeSDK.query() + [TOOL EXECUTED] 마커
+    ├── context.py          ProjectContext + ContextManager
+    ├── hooks.py            quality/logging/budget/security 훅
+    └── tools.py            MCP 도구 스키마
+```
+
+### agent_config (JSON 팀 설정에서 프로필 전달)
+
+```json
+"model_client": {
+  "provider": "AG_Cohub.model_factory.ClaudeCLIChatCompletionClient",
+  "config": {
+    "model": "claude-sonnet-4-5-20250929",
+    "agent_config": {
+      "profile": "coder",
+      "max_turns": 5,
+      "permission_mode": "acceptEdits",
+      "cwd": "D:\\AC247"
+    }
+  }
+}
+```
+
+### ToolProfile
+
+| Profile | 도구 | 용도 |
+|---------|------|------|
+| `text_only` | 없음 | 순수 텍스트 |
+| `reader` | Read, Glob, Grep | 읽기 분석 |
+| `coder` | Read, Write, Edit, Bash, Glob, Grep | 코드 작성 |
+| `full_agent` | 전체 | 완전 자율 |
+
+### Plan Mode
+
+`"permission_mode": "plan"` - Planner 에이전트용. Read/Glob/Grep만 허용, 쓰기 차단.
+
+### [TOOL EXECUTED] 마커
+
+도구 실행 시 응답에 마커 삽입:
+```
+[TOOL EXECUTED: Write] -> D:\AC247\calc.py
+[TOOL EXECUTED: Bash] $ python calc.py
+[TOOL RESULT]: All tests passed
+```
+
+---
+
+## E2E 테스트 결과 (2026-02-07)
+
+| 팀 | 패턴 | Run# | 결과 |
+|----|------|------|------|
+| Sequential | RoundRobinGroupChat | - | PASS |
+| Selector | SelectorGroupChat | - | PASS |
+| Handoff | Swarm | #177 | PASS |
+| Debate | SelectorGroupChat | #178 | PASS |
+| Reflection | RoundRobinGroupChat | #152 | PASS |
+| **Tool Execution** | Auto-Claude Dev Team | #182 | PASS (fibonacci.py) |
+
+---
+
 ## Changelog
 
+### 2026-02-07
+- **Tool Execution Breakthrough**: SDK 도구 실행 성공 (Write, Bash)
+  - `[TOOL EXECUTED]` 마커로 도구 사용 여부 식별
+  - Auto-Claude Dev Team (4-agent): planner(plan) -> coder -> reviewer -> fixer
+  - 코드 출력 디렉토리: `D:\AC247\`
+
+### 2026-02-06
+- **Claude Agent SDK 전환**: subprocess -> SDK, 59s -> 15s
+  - `sdk/` 패키지 7개 모듈로 분리
+  - `agent_config` 시스템으로 JSON 팀 설정에서 프로필 전달
+  - 5/5 Gallery 팀 E2E PASS
+
 ### 2025-01-11
-- ✨ **CLI Agent**: Claude Code 기반 CLI 에이전트 추가
-  - 6개 도구 지원: Read, Write, Edit, Glob, Grep, Bash
-  - 모듈화 구조: config.py, tools/, utils/
-  - Stream-JSON 파싱으로 실시간 로그 캡처
-  - AutoGen Studio 패턴과 완벽 통합
+- CLI Agent: Claude Code 기반 CLI 에이전트 추가
+  - 6개 도구: Read, Write, Edit, Glob, Grep, Bash
   - 포트: 8110 (db), 8111 (backend)
 
 ### 2025-01-10
-- 🐛 **Bug Fix**: `allow_repeated_speaker` 버그 수정
-  - `pattern-loader.ts`: top-level과 autogen_implementation 양쪽에서 requiredConfig 읽기
-  - `selector-config.ts`: 기본값을 false로 설정 (AutoGen 기본 동작과 일치)
-  - `team-factory.ts`: selector_prompt 적용 로직 개선
-- ✨ **New Patterns**: 10_mixture_of_agents.json, 11_code_execution.json 추가
-- ✅ **Tested Patterns**:
-  - Multi-Agent Debate: 4개 A2A 에이전트 토론 성공
-  - Reflection Pattern: 44,405 tokens | 20 messages
-  - Selector/Router Orchestration: 27,491 tokens | 15 messages
+- Bug Fix: `allow_repeated_speaker` 수정
+- New Patterns: 10_mixture_of_agents.json, 11_code_execution.json
+- Tested: Debate (4 agents), Reflection (44K tokens), Selector (27K tokens)
 
 ## 라이선스
 

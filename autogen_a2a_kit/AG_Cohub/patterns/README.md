@@ -240,7 +240,7 @@ const PATTERN_JSON_FILES: CoHubPatternJSON[] = [
 ### Step 4: 빌드
 
 ```bash
-cd frontend && npm run build
+cd AG-Frontend && npm run build
 ```
 
 ---
@@ -286,5 +286,24 @@ chat.tsx → WebSocket → Backend
 
 ---
 
-*Last Updated: 2025-01-11*
+## Claude 모델 + agent_config
+
+Claude 모델(`ClaudeCLIChatCompletionClient`)을 사용하는 패턴에서는 `agent_config`로 도구 프로필 지정:
+
+```json
+"model_client": {
+  "provider": "AG_Cohub.model_factory.ClaudeCLIChatCompletionClient",
+  "config": {
+    "model": "claude-sonnet-4-5-20250929",
+    "agent_config": {"profile": "coder", "permission_mode": "acceptEdits", "cwd": "D:\\AC247"}
+  }
+}
+```
+
+도구 실행 확인: 응답에 `[TOOL EXECUTED: Write] -> filepath` 마커 포함.
+
+---
+
+*Last Updated: 2026-02-07*
+*agent_config + Plan Mode Added: 2026-02-07*
 *CLI Compatibility Added: 2025-01-11*

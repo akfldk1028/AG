@@ -60,6 +60,7 @@ auth_manager = init_auth_manager(initializer.config_dir)
 app = FastAPI(lifespan=lifespan, debug=True)
 
 # CORS middleware configuration
+# ★ Auto-Claude (5173) 연동을 위해 CORS 허용 추가
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -67,6 +68,9 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "http://localhost:8001",
         "http://localhost:8081",
+        "http://localhost:5173",   # Auto-Claude dev server
+        "http://127.0.0.1:5173",   # Auto-Claude dev server (alt)
+        "http://localhost:3000",   # Future: other dev servers
     ],
     allow_credentials=True,
     allow_methods=["*"],

@@ -206,7 +206,7 @@ handoffs 설정: triage.handoffs = ["sales", "support"]
 
 ```bash
 cp patterns/10_my_pattern.json \
-   frontend/src/.../agentflow/patterns/data/
+   AG-Frontend/src/.../agentflow/patterns/data/
 ```
 
 ### Step 3: pattern-loader.ts에 import 추가
@@ -223,7 +223,7 @@ const PATTERN_JSON_FILES = [
 ### Step 4: 빌드 및 테스트
 
 ```bash
-cd frontend && npm run build
+cd AG-Frontend && npm run build
 ```
 
 ---
@@ -435,5 +435,253 @@ User: "인공지능의 미래에 대해 토론해주세요"
 
 ---
 
-*Last Updated: 2025-01-11*
+## Claude Max OAuth 모델 (API 키 없이 Claude 사용)
+
+> **핵심**: Claude Max 구독자는 API 키 없이 `claude` CLI를 통해 AutoGen Studio에서 Claude 모델 사용 가능.
+
+### 구조 (2026-02-06 SDK 리팩토링)
+
+```
+AG_Cohub/
+├── model_factory.py                   ← Slim AutoGen ChatCompletionClient (SDK에 위임)
+│   ├── ClaudeCLIChatCompletionClient  ← AutoGen 호환 래퍼
+│   │   ├── create()    → ClaudeSDK.query() (SDK 우선, subprocess 폴백)
+│   │   └── agent_config: dict 수용   ← JSON 팀 설정에서 프로필 전달
+│   └── get_model_client()             ← 팩토리
+│
+├── sdk/                               ← 모듈화된 SDK 패키지 (7개 모듈)
+│   ├── auth.py      OAuth 토큰 관리 (~/.claude/.credentials.json)
+│   ├── config.py    ToolProfile, AgentConfig, PermissionMode, ROLE_PRESETS
+│   ├── client.py    ClaudeSDK 래퍼 (query + conversation)
+│   │                [TOOL EXECUTED: Write] 마커 + ToolResultBlock 처리
+│   ├── context.py   ProjectContext + ContextManager (cwd, SharedMemory 8101)
+│   ├── hooks.py     quality/logging/budget/security 훅
+│   └── tools.py     MCP 도구 스키마 (shared_memory, project, autogen)
+│
+├── patterns/        패턴 JSON 정의
+├── templates/       팀 설정 템플릿
+└── loader/          TypeScript 로더
+```
+
+### ToolProfile 시스템 (sdk/config.py)
+
+| Profile | 도구 | JSON 설정 |
+|---------|------|-----------|
+| TEXT_ONLY | `tools=[]` | `"profile": "text_only"` |
+| READER | Read, Glob, Grep, WebSearch | `"profile": "reader"` |
+| CODER | Read, Write, Edit, Bash, Glob, Grep | `"profile": "coder"` |
+| FULL_AGENT | `tools=None` (전체) | `"profile": "full_agent"` |
+
+### Plan Mode
+
+`"permission_mode": "plan"` - Claude Code의 공식 plan mode.
+Read/Glob/Grep만 가능, Write/Edit/Bash 차단.
+
+```json
+"agent_config": {"profile": "reader", "permission_mode": "plan", "cwd": "D:\\AC247"}
+```
+
+### [TOOL EXECUTED] 마커 (sdk/client.py)
+
+SDK가 도구를 실행하면 응답에 마커를 삽입하여 다른 에이전트가 도구 사용 여부를 판별:
+
+```
+[TOOL EXECUTED: Write] -> D:\AC247\calc.py
+[TOOL EXECUTED: Bash] $ python D:\AC247\calc.py
+[TOOL RESULT]: Tests passed (5/5)
+```
+
+### Gallery에 등록된 Claude 모델 (3개)
+
+| 모델 | label | model ID |
+|------|-------|----------|
+| Sonnet 4.5 | Claude Sonnet 4.5 (Max OAuth) | `claude-sonnet-4-5-20250929` |
+| Opus 4.5 | Claude Opus 4.5 (Max OAuth) | `claude-opus-4-5-20251101` |
+| Haiku 4.5 | Claude Haiku 4.5 (Max OAuth) | `claude-haiku-4-5-20251001` |
+
+**전용 Gallery**: `Claude Max Models (OAuth)` (Gallery ID: **11**, `claude_max_models`)
+- Default Gallery(ID 9/10)는 건드리지 않음
+- Claude 전용 Gallery를 별도로 생성하여 관리
+
+### Gallery 재생성 방법 (DB 초기화 등으로 사라졌을 때)
+
+```python
+import urllib.request, json, sqlite3
+
+# 1. 전용 Gallery 생성 (POST)
+gallery_config = {
+    'config': {
+        'id': 'claude_max_models',
+        'name': 'Claude Max Models (OAuth)',
+        'metadata': {
+            'author': 'AG_Cohub',
+            'description': 'Claude Max 구독의 OAuth로 API 키 없이 사용하는 Claude 모델들',
+            'version': '1.0.0'
+        },
+        'components': [
+            {
+                'provider': 'AG_Cohub.model_factory.ClaudeCLIChatCompletionClient',
+                'component_type': 'model', 'version': 1, 'component_version': 1,
+                'label': 'Claude Sonnet 4.5 (Max OAuth)',
+                'description': 'Claude Sonnet 4.5 - Max 구독 OAuth, API 키 불필요. 범용 코딩/분석.',
+                'config': {'model': 'claude-sonnet-4-5-20250929'}
+            },
+            {
+                'provider': 'AG_Cohub.model_factory.ClaudeCLIChatCompletionClient',
+                'component_type': 'model', 'version': 1, 'component_version': 1,
+                'label': 'Claude Opus 4.5 (Max OAuth)',
+                'description': 'Claude Opus 4.5 - Max 구독 OAuth, API 키 불필요. 고급 추론/분석.',
+                'config': {'model': 'claude-opus-4-5-20251101'}
+            },
+            {
+                'provider': 'AG_Cohub.model_factory.ClaudeCLIChatCompletionClient',
+                'component_type': 'model', 'version': 1, 'component_version': 1,
+                'label': 'Claude Haiku 4.5 (Max OAuth)',
+                'description': 'Claude Haiku 4.5 - Max 구독 OAuth, API 키 불필요. 빠른 응답.',
+                'config': {'model': 'claude-haiku-4-5-20251001'}
+            }
+        ]
+    }
+}
+data = json.dumps(gallery_config).encode()
+req = urllib.request.Request(
+    'http://127.0.0.1:8081/api/gallery/?user_id=guestuser@gmail.com',
+    data=data, headers={'Content-Type': 'application/json'}
+)
+resp = json.loads(urllib.request.urlopen(req).read())
+new_id = resp['data']['id']
+print(f'Gallery created: ID {new_id}')
+
+# 2. user_id 수정 (API가 user_id를 NULL로 생성하는 경우)
+db_path = r'C:\Users\SOGANG1\.autogenstudio\autogen04203.db'
+conn = sqlite3.connect(db_path)
+conn.execute(f"UPDATE gallery SET user_id = 'guestuser@gmail.com' WHERE id = {new_id} AND user_id IS NULL")
+conn.commit()
+conn.close()
+print(f'Gallery {new_id} user_id fixed')
+
+# 3. 확인
+resp = urllib.request.urlopen('http://127.0.0.1:8081/api/gallery/?user_id=guestuser@gmail.com')
+galleries = json.loads(resp.read())['data']
+for g in galleries:
+    print(f"  Gallery {g['id']}: {g['config']['name']}")
+```
+
+**왜 전용 Gallery인가?**
+- Default Gallery를 수정하면 AutoGen Studio 업데이트 시 충돌 가능
+- Claude 모델만 별도 관리하면 추가/삭제가 깔끔
+- Gallery ID가 변경되어도 `claude_max_models`라는 config ID로 식별 가능
+
+### Import 경로 설정
+
+AG_Cohub 모듈이 AutoGen Studio에서 import 가능해야 함:
+
+1. **`.pth` 파일** (자동 import 경로):
+   ```
+   C:\Users\SOGANG1\AppData\Roaming\Python\Python313\site-packages\ag_cohub.pth
+   내용: D:\Data\25_ACE\AG\autogen_a2a_kit
+   ```
+
+2. **`start_autogen.py`에서도 경로 추가**:
+   ```python
+   sys.path.insert(0, r"D:\Data\25_ACE\AG\autogen_a2a_kit")
+   ```
+
+### 서버 실행 (start_autogen.py)
+
+```powershell
+python D:\Data\25_ACE\AG\start_autogen.py
+# → http://127.0.0.1:8081
+```
+
+**주의**: `autogenstudio` CLI 명령어는 설치되어 있지 않음. 반드시 `start_autogen.py`로 실행.
+
+### 프론트엔드 빌드 & 배포
+
+> **커스텀 프론트엔드**: `AG-frontend/` (Vite + React 19)을 사용합니다. `cd AG-frontend && npm run dev`
+> 아래는 AutoGen Studio **내장 UI (upstream 원본)** 빌드 참고용입니다.
+
+UI가 깨질 때 (webpack JS 404 에러) 다음 순서로 수행:
+
+```powershell
+# 1. 빌드
+cd D:\Data\25_ACE\AG\autogen_a2a_kit\autogen_source\python\packages\autogen-studio\frontend
+npm install --legacy-peer-deps
+npx gatsby clean
+npx gatsby build --prefix-paths
+
+# 2. 실제 UI 경로에 복사 (★ 중요: 22_AG 경로!)
+#    autogenstudio 패키지가 D:\Data\22_AG\...에서 import되므로 거기에 복사해야 함
+Copy-Item -Path "public\*" `
+  -Destination "D:\Data\22_AG\autogen_a2a_kit\autogen_source\python\packages\autogen-studio\autogenstudio\web\ui\" `
+  -Recurse -Force
+
+# 3. 서버 재시작
+python D:\Data\25_ACE\AG\start_autogen.py
+
+# 4. 브라우저에서 Ctrl+Shift+R (강제 새로고침, 캐시 무시)
+```
+
+**★ UI 복사 경로 주의**:
+- `autogenstudio` 패키지는 `D:\Data\22_AG\...`에서 로드됨 (Python import 경로)
+- `25_ACE`가 아닌 `22_AG` 경로의 `web/ui/`에 복사해야 함
+- 틀린 경로에 복사하면 webpack JS 404 에러 발생
+
+### 동작 확인 (WebSocket 테스트)
+
+```python
+import asyncio, json, urllib.request, websockets
+
+with open(r'D:\Data\25_ACE\AG\team27_config.json') as f:
+    team_config = json.load(f)
+
+async def test():
+    # Run 생성
+    data = json.dumps({'session_id': 125, 'user_id': 'guestuser@gmail.com', 'task': 'test'}).encode()
+    req = urllib.request.Request('http://127.0.0.1:8081/api/runs/?user_id=guestuser@gmail.com',
+        data=data, headers={'Content-Type': 'application/json'})
+    run_id = json.loads(urllib.request.urlopen(req).read())['data']['run_id']
+
+    # WebSocket 실행
+    uri = f'ws://127.0.0.1:8081/api/ws/runs/{run_id}?user_id=guestuser@gmail.com'
+    async with websockets.connect(uri, ping_interval=30, ping_timeout=120) as ws:
+        await ws.recv()  # connected
+        await ws.send(json.dumps({'type': 'start', 'task': 'What is 2+3?', 'team_config': team_config}))
+        while True:
+            resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=120))
+            print(f"[{resp.get('type')}] {str(resp)[:200]}")
+            if resp.get('type') in ('result', 'error'):
+                break
+
+asyncio.run(test())
+```
+
+**참고**: Claude CLI 응답에 ~60초 소요. WebSocket 타임아웃을 120초 이상으로 설정할 것.
+
+### 트러블슈팅
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| webpack JS 404 에러 | 프론트엔드 빌드 해시 불일치 | upstream UI rebuild → `22_AG` 경로에 복사 → Ctrl+Shift+R, 또는 `AG-frontend/` 사용 권장 |
+| Sessions 0, "Create a team" | JS 로드 실패로 API 호출 안 됨 | 위와 동일 (데이터는 안 사라짐) |
+| Run이 CREATED에 머무름 | REST API만으로는 실행 안 됨 | WebSocket으로 `type: start` + `team_config` 전송 필요 |
+| Claude CLI 응답 없음 | `claude` CLI 미설치 또는 미로그인 | `claude /login` 실행 |
+| `ModuleNotFoundError: AG_Cohub` | import 경로 미설정 | `.pth` 파일 확인 또는 `sys.path.insert` |
+| OAuth token not found | 크리덴셜 파일 없음 | `claude /login` 후 `~/.claude/.credentials.json` 확인 |
+
+### E2E 테스트 결과 (2026-02-07)
+
+| 팀 | Run# | 결과 | 비고 |
+|----|------|------|------|
+| Reflection | #152 | PASS | critic APPROVED |
+| Code Generation | #155 | PASS | 7984 chars |
+| Handoff | #177 | PASS | triage->refund->triage->support |
+| Debate | #178 | PASS | advocate->critic->judge(TERMINATE) |
+| Tool Execution | #182 | PASS | fibonacci.py 생성, D:\AC247 |
+
+---
+
+*Last Updated: 2026-02-07*
+*SDK Package + Tool Execution + Plan Mode: 2026-02-07*
+*Claude Max OAuth Model Factory Added: 2026-01-29*
 *CLI Agent Guide Added: 2025-01-11*

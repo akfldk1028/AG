@@ -38,18 +38,16 @@ model="openai/gpt-4o-mini"  # X - Model not found 에러
 model="gpt-4o-mini"  # O - 정상 작동
 ```
 
-## 3. Frontend 빌드 (Windows)
+## 3. Frontend
 
+> **커스텀 프론트엔드**: `AG-frontend/` (Vite 7 + React 19 + Tailwind v4)
+> AutoGen Studio 내장 UI(web/ui/)는 더 이상 수정하지 않습니다.
+> `cd AG-frontend && npm run dev` → http://localhost:5173 (proxy → :8081)
+
+### AutoGen Studio 내장 UI 빌드 (upstream 원본, 참고용만)
 ```powershell
 cd D:\Data\22_AG\autogen_a2a_kit\autogen_source\python\packages\autogen-studio\frontend
-
-# 1. Clean
-npx gatsby clean
-
-# 2. Build
-npx gatsby build --prefix-paths
-
-# 3. Copy to web/ui
+npx gatsby clean && npx gatsby build --prefix-paths
 Copy-Item -Path "public\*" -Destination "..\autogenstudio\web\ui\" -Recurse -Force
 ```
 

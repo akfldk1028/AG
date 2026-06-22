@@ -53,6 +53,7 @@ templates/*.json:
 | `debate_team.json` | SelectorGroupChat | 토론 팀 |
 | `handoff_team.json` | Swarm | 핸드오프 팀 |
 | `reflection_team.json` | RoundRobinGroupChat | 반성 패턴 팀 |
+| `auto_claude_dev_team.json` | RoundRobinGroupChat | **4-agent 개발 파이프라인** (NEW) |
 
 ---
 
@@ -228,12 +229,55 @@ Frontend에서는 `pattern-loader.ts`의 `buildTeamTemplate()`로 런타임에 �
 
 ---
 
+## agent_config (Claude SDK 프로필)
+
+Claude 모델(`ClaudeCLIChatCompletionClient`)을 사용하는 템플릿에는 `agent_config`가 포함됩니다.
+
+```json
+"model_client": {
+  "provider": "AG_Cohub.model_factory.ClaudeCLIChatCompletionClient",
+  "config": {
+    "model": "claude-sonnet-4-5-20250929",
+    "agent_config": {
+      "profile": "coder",
+      "max_turns": 5,
+      "permission_mode": "acceptEdits",
+      "cwd": "D:\\AC247"
+    }
+  }
+}
+```
+
+### 프로필별 설정
+
+| profile | permission_mode | 용도 |
+|---------|----------------|------|
+| `reader` | `plan` | Planner - 읽기 전용 분석 |
+| `coder` | `acceptEdits` | Coder/Fixer - 코드 작성 |
+| `text_only` | `default` | Reviewer - 텍스트 판단만 |
+
+### Auto-Claude Dev Team 구조
+
+```
+planner_agent (reader, plan)
+  -> coder_agent (coder, acceptEdits, cwd=D:\AC247)
+    -> qa_reviewer_agent (reader, acceptEdits)
+      -> qa_fixer_agent (coder, acceptEdits, cwd=D:\AC247)
+```
+
+코드 출력: `D:\AC247\`
+도구 확인: `[TOOL EXECUTED: Write] -> filepath` 마커
+
+---
+
 ## 관련 파일
 
 - `AG_Cohub/cohub_loader.py` - 템플릿 생성 스크립트
 - `AG_Cohub/cohub_gallery_builder.py` - Gallery JSON 생성
 - `AG_Cohub/loader/converter.ts` - TypeScript에서 템플릿 생성
+- `AG_Cohub/sdk/config.py` - ToolProfile, AgentConfig 정의
+- `AG_Cohub/model_factory.py` - ClaudeCLIChatCompletionClient
 
 ---
 
-*Last Updated: 2025-01-09*
+*Last Updated: 2026-02-07*

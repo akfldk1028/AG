@@ -5,7 +5,7 @@
 사용법:
     from config import config
     print(config.WORK_FOLDER)
-    config.update(folder="frontend", expertise="React")
+    config.update(folder="AG-Frontend", expertise="React")
 """
 from pathlib import Path
 

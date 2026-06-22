@@ -1,8 +1,10 @@
 # api/routes/sessions.py
+import json
 from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
+from sqlalchemy import text
 
 from ...datamodel import Message, Response, Run, Session
 from ..deps import get_db
@@ -64,7 +66,13 @@ async def delete_session(session_id: int, user_id: str, db=Depends(get_db)) -> D
 
 @router.get("/{session_id}/runs")
 async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:
-    """Get complete session history organized by runs"""
+    """Get complete session history organized by runs.
+
+    Uses raw SQL to preserve the full JSON structure of team_result,
+    including message content and type fields that would otherwise be
+    lost during Pydantic deserialization of abstract base class unions.
+    """
+    from sqlmodel import Session as SQLSession
 
     try:
         # 1. Verify session exists and belongs to user
@@ -74,42 +82,72 @@ async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -
         if not session.data:
             raise HTTPException(status_code=404, detail="Session not found or access denied")
 
-        # 2. Get ordered runs for session
-        runs = db.get(Run, filters={"session_id": session_id}, order="asc", return_json=False)
-        if not runs.status:
-            raise HTTPException(status_code=500, detail="Database error while fetching runs")
-
-        # 3. Build response with messages per run
+        # 2. Get ordered runs for session using raw SQL to preserve JSON structure
         run_data = []
-        if runs.data:  # It's ok to have no runs
-            for run in runs.data:
+        with SQLSession(db.engine) as sql_session:
+            runs_result = sql_session.execute(
+                text("""
+                    SELECT id, created_at, status, task, team_result
+                    FROM run WHERE session_id = :session_id
+                    ORDER BY created_at ASC
+                """),
+                {"session_id": session_id}
+            ).fetchall()
+
+            for run_row in runs_result:
+                run_id = run_row[0]
                 try:
-                    # Get messages for this specific run
-                    messages = db.get(Message, filters={"run_id": run.id}, order="asc", return_json=False)
-                    if not messages.status:
-                        logger.error(f"Failed to fetch messages for run {run.id}")
-                        # Continue processing other runs even if one fails
-                        messages.data = []
+                    # Get messages from Message table (these have correct type and content)
+                    msg_result = sql_session.execute(
+                        text("""
+                            SELECT config FROM message
+                            WHERE run_id = :run_id
+                            ORDER BY created_at ASC
+                        """),
+                        {"run_id": run_id}
+                    ).fetchall()
+
+                    # Parse message configs
+                    message_configs = []
+                    for msg_row in msg_result:
+                        if msg_row[0]:
+                            msg_config = json.loads(msg_row[0]) if isinstance(msg_row[0], str) else msg_row[0]
+                            message_configs.append(msg_config)
+
+                    # Parse JSON fields that might be stored as strings
+                    task_data = run_row[3]
+                    if isinstance(task_data, str):
+                        task_data = json.loads(task_data)
+
+                    team_result_data = run_row[4]
+                    if isinstance(team_result_data, str):
+                        team_result_data = json.loads(team_result_data)
+
+                    # Replace corrupted messages with correct Message table data
+                    if team_result_data and isinstance(team_result_data, dict):
+                        task_result = team_result_data.get('task_result')
+                        if task_result and isinstance(task_result, dict) and message_configs:
+                            task_result['messages'] = message_configs
 
                     run_data.append(
                         {
-                            "id": str(run.id),
-                            "created_at": run.created_at,
-                            "status": run.status,
-                            "task": run.task,
-                            "team_result": run.team_result,
-                            "messages": messages.data or [],
+                            "id": str(run_id),
+                            "created_at": run_row[1].isoformat() if run_row[1] and hasattr(run_row[1], 'isoformat') else (run_row[1] if run_row[1] else None),
+                            "status": run_row[2],
+                            "task": task_data,
+                            "team_result": team_result_data,
+                            "messages": message_configs,
                         }
                     )
                 except Exception as e:
-                    logger.error(f"Error processing run {run.id}: {str(e)}")
+                    logger.error(f"Error processing run {run_id}: {str(e)}")
                     # Include run with error state instead of failing entirely
                     run_data.append(
                         {
-                            "id": str(run.id),
-                            "created_at": run.created_at,
+                            "id": str(run_id),
+                            "created_at": run_row[1].isoformat() if run_row[1] and hasattr(run_row[1], 'isoformat') else (run_row[1] if run_row[1] else None),
                             "status": "ERROR",
-                            "task": run.task,
+                            "task": None,
                             "team_result": None,
                             "messages": [],
                             "error": f"Failed to process run: {str(e)}",

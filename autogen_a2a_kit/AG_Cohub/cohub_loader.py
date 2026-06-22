@@ -25,11 +25,23 @@ try:
         TextMentionTermination,
     )
     from autogen_agentchat.teams import RoundRobinGroupChat, SelectorGroupChat, Swarm
-    from autogen_ext.models.openai import OpenAIChatCompletionClient
     AUTOGEN_AVAILABLE = True
 except ImportError:
     AUTOGEN_AVAILABLE = False
     print("Warning: AutoGen packages not available. Some features disabled.")
+
+# ★ Model Factory (Claude 및 다중 모델 지원 - 2026-01-24)
+try:
+    from .model_factory import get_model_client, list_available_models, check_provider_availability
+    MODEL_FACTORY_AVAILABLE = True
+except ImportError:
+    # Fallback: 직접 import
+    try:
+        from model_factory import get_model_client, list_available_models, check_provider_availability
+        MODEL_FACTORY_AVAILABLE = True
+    except ImportError:
+        MODEL_FACTORY_AVAILABLE = False
+        print("Warning: model_factory not available. Using OpenAI only.")
 
 
 class CoHubLoader:
@@ -64,12 +76,23 @@ class CoHubLoader:
                     return data
         raise ValueError(f"Pattern not found: {pattern_id}")
 
-    def generate_sequential_template(self, model_name: str = "gpt-4o-mini") -> dict:
-        """Sequential (RoundRobinGroupChat) 팀 템플릿 생성"""
+    def generate_sequential_template(self, model_name: str = "claude-sonnet-4-5") -> dict:
+        """Sequential (RoundRobinGroupChat) 팀 템플릿 생성
+
+        ★ Claude 모델 지원 (2026-01-24):
+           model_name에 claude-* 모델을 직접 사용할 수 있습니다.
+           예: "claude-sonnet-4-5", "claude-3-5-haiku", "gpt-4o-mini"
+        """
         if not AUTOGEN_AVAILABLE:
             return self._generate_static_sequential_template()
 
-        model = OpenAIChatCompletionClient(model=model_name)
+        # ★ Model Factory를 통한 다중 모델 지원
+        if MODEL_FACTORY_AVAILABLE:
+            model = get_model_client(model_name)
+        else:
+            # Fallback: OpenAI only
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            model = OpenAIChatCompletionClient(model=model_name)
 
         agent1 = AssistantAgent(
             name="researcher",
@@ -98,12 +121,17 @@ class CoHubLoader:
 
         return team.dump_component().model_dump()
 
-    def generate_selector_template(self, model_name: str = "gpt-4o-mini") -> dict:
+    def generate_selector_template(self, model_name: str = "claude-sonnet-4-5") -> dict:
         """Selector (SelectorGroupChat) 팀 템플릿 생성"""
         if not AUTOGEN_AVAILABLE:
             return self._generate_static_selector_template()
 
-        model = OpenAIChatCompletionClient(model=model_name)
+        # ★ Model Factory를 통한 다중 모델 지원
+        if MODEL_FACTORY_AVAILABLE:
+            model = get_model_client(model_name)
+        else:
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            model = OpenAIChatCompletionClient(model=model_name)
 
         coordinator = AssistantAgent(
             name="coordinator",
@@ -156,12 +184,17 @@ class CoHubLoader:
 
         return team.dump_component().model_dump()
 
-    def generate_handoff_template(self, model_name: str = "gpt-4o-mini") -> dict:
+    def generate_handoff_template(self, model_name: str = "claude-sonnet-4-5") -> dict:
         """Handoff (Swarm) 팀 템플릿 생성"""
         if not AUTOGEN_AVAILABLE:
             return self._generate_static_handoff_template()
 
-        model = OpenAIChatCompletionClient(model=model_name)
+        # ★ Model Factory를 통한 다중 모델 지원
+        if MODEL_FACTORY_AVAILABLE:
+            model = get_model_client(model_name)
+        else:
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            model = OpenAIChatCompletionClient(model=model_name)
 
         triage = AssistantAgent(
             name="triage_agent",
@@ -204,12 +237,17 @@ class CoHubLoader:
 
         return team.dump_component().model_dump()
 
-    def generate_debate_template(self, model_name: str = "gpt-4o-mini") -> dict:
+    def generate_debate_template(self, model_name: str = "claude-sonnet-4-5") -> dict:
         """Debate 팀 템플릿 생성"""
         if not AUTOGEN_AVAILABLE:
             return self._generate_static_debate_template()
 
-        model = OpenAIChatCompletionClient(model=model_name)
+        # ★ Model Factory를 통한 다중 모델 지원
+        if MODEL_FACTORY_AVAILABLE:
+            model = get_model_client(model_name)
+        else:
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            model = OpenAIChatCompletionClient(model=model_name)
 
         advocate = AssistantAgent(
             name="advocate",
@@ -263,12 +301,17 @@ class CoHubLoader:
 
         return team.dump_component().model_dump()
 
-    def generate_reflection_template(self, model_name: str = "gpt-4o-mini") -> dict:
+    def generate_reflection_template(self, model_name: str = "claude-sonnet-4-5") -> dict:
         """Reflection 팀 템플릿 생성"""
         if not AUTOGEN_AVAILABLE:
             return self._generate_static_reflection_template()
 
-        model = OpenAIChatCompletionClient(model=model_name)
+        # ★ Model Factory를 통한 다중 모델 지원
+        if MODEL_FACTORY_AVAILABLE:
+            model = get_model_client(model_name)
+        else:
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            model = OpenAIChatCompletionClient(model=model_name)
 
         generator = AssistantAgent(
             name="generator",
@@ -395,7 +438,7 @@ class CoHubLoader:
             "_note": "이 템플릿은 AutoGen이 설치된 환경에서 cohub_loader.py를 실행하여 완전한 버전을 생성하세요."
         }
 
-    def generate_all_templates(self, model_name: str = "gpt-4o-mini"):
+    def generate_all_templates(self, model_name: str = "claude-sonnet-4-5"):
         """모든 패턴의 템플릿 생성"""
         templates = {
             "sequential": self.generate_sequential_template(model_name),
@@ -440,12 +483,60 @@ class CoHubLoader:
                 print("Make sure AutoGen Studio is running.")
                 break
 
+    def import_compact(self, template_dir: str = "templates_compact", user_id: str = "admin"):
+        """Resolve compact templates and import to AutoGen Studio.
+
+        Uses ref_resolver to expand $ref references before POSTing.
+        """
+        import requests
+
+        # JSON_MODULES 경로: AG/autogen_a2a_kit/AG_Cohub/ → 3 levels up → repo root / JSON_MODULES
+        json_modules_dir = Path(
+            os.environ.get("JSON_MODULES_DIR",
+                           Path(__file__).resolve().parent.parent.parent.parent / "JSON_MODULES")
+        )
+        if not json_modules_dir.exists():
+            print(f"Error: JSON_MODULES not found at {json_modules_dir}")
+            print("Set JSON_MODULES_DIR env var to override.")
+            return
+
+        sys.path.insert(0, str(json_modules_dir))
+        try:
+            from ref_resolver import resolve_file
+        finally:
+            sys.path.remove(str(json_modules_dir))
+
+        api_base = os.environ.get("AUTOGEN_STUDIO_API", "http://localhost:8081/api")
+        compact_dir = json_modules_dir / template_dir
+
+        if not compact_dir.exists():
+            print(f"Error: {compact_dir} not found")
+            return
+
+        for template_file in sorted(compact_dir.glob("*.json")):
+            try:
+                resolved = resolve_file(template_file, json_modules_dir)
+                response = requests.post(
+                    f"{api_base}/teams/",
+                    json={"user_id": user_id, "component": resolved}
+                )
+                if response.status_code == 200:
+                    team_id = response.json().get("id", "?")
+                    print(f"Imported (compact): {template_file.name} -> id={team_id}")
+                else:
+                    print(f"Failed: {template_file.name}: {response.status_code} {response.text[:200]}")
+            except requests.exceptions.ConnectionError:
+                print(f"Cannot connect to AutoGen Studio API at {api_base}")
+                break
+            except Exception as e:
+                print(f"Error resolving {template_file.name}: {e}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="AG_Cohub Loader - AutoGen Studio 연동")
-    parser.add_argument("--action", choices=["list", "generate", "import"], default="list",
-                       help="수행할 작업 (list: 패턴 목록, generate: 템플릿 생성, import: Studio에 등록)")
-    parser.add_argument("--model", default="gpt-4o-mini", help="사용할 모델 (기본: gpt-4o-mini)")
+    parser.add_argument("--action", choices=["list", "generate", "import", "compact"], default="list",
+                       help="수행할 작업 (list: 패턴 목록, generate: 템플릿 생성, import: Studio에 등록, compact: $ref 템플릿 resolve+import)")
+    parser.add_argument("--model", default="claude-sonnet-4-5", help="사용할 모델 (기본: claude-sonnet-4-5, 옵션: gpt-4o-mini, claude-3-5-haiku 등)")
     parser.add_argument("--user-id", default="admin", help="AutoGen Studio 사용자 ID")
 
     args = parser.parse_args()
@@ -469,6 +560,10 @@ def main():
     elif args.action == "import":
         print(f"\n=== AutoGen Studio에 Import (user: {args.user_id}) ===\n")
         loader.import_to_autogen_studio(args.user_id)
+
+    elif args.action == "compact":
+        print(f"\n=== Compact Template Resolve + Import (user: {args.user_id}) ===\n")
+        loader.import_compact(user_id=args.user_id)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ CollaborativeAgent를 A2A 프로토콜로 노출하는 에이전트
         └── logging.py      - 로그 시스템
 
 사용법:
-    python studio/cli_agent.py --folder frontend --port 8110
+    python studio/cli_agent.py --folder AG-Frontend --port 8110
 
 로그 확인:
     GET http://localhost:{port}/logs/{task_id}
@@ -76,7 +76,7 @@ def create_cli_agent(folder: str, expertise: str, description: str) -> Agent:
     """폴더 전문 Claude CLI 에이전트를 생성합니다.
 
     Args:
-        folder: 작업 폴더 (예: "frontend", "backend")
+        folder: 작업 폴더 (예: "AG-Frontend", "backend")
         expertise: 전문 분야 (예: "React/TypeScript", "FastAPI/Python")
         description: 에이전트 설명
 

@@ -122,7 +122,7 @@ git log upstream/main --oneline -20
 git diff main..upstream/main --name-only | grep -E "(autogen-studio|autogen-agentchat)"
 
 # 3. 충돌 위험 파일 먼저 확인
-git diff main..upstream/main -- autogen_source/python/packages/autogen-studio/frontend/src/components/views/playground/chat/agentflow/agentflow.tsx
+git diff main..upstream/main -- autogen_source/python/packages/autogen-studio/AG-Frontend/src/components/views/playground/chat/agentflow/agentflow.tsx
 
 # 4. 안전한 파일 먼저 머지
 git checkout upstream/main -- autogen_source/python/packages/autogen-core/

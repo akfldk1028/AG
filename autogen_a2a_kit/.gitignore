@@ -51,10 +51,13 @@ autogen_source/python/packages/magentic-one-cli/
 autogen_source/python/packages/pyautogen/
 autogen_source/python/packages/component-schema-gen/
 
-# AutoGen Studio frontend build artifacts
+# AutoGen Studio AG-Frontend build artifacts
 autogen_source/python/packages/autogen-studio/frontend/node_modules/
 autogen_source/python/packages/autogen-studio/frontend/.cache/
 autogen_source/python/packages/autogen-studio/frontend/public/
+autogen_source/python/packages/autogen-studio/autogenstudio/web/ui/
+AG-cli/tmpclaude-*
+tmpclaude-*
 
 # 테스트 스크립트 (개발용)
 test_*.py

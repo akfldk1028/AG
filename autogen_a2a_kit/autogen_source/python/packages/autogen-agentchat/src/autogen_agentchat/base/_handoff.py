@@ -30,6 +30,8 @@ class Handoff(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def set_defaults(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if isinstance(values, str):
+            values = {"target": values}
         if not values.get("description"):
             values["description"] = f"Handoff to {values['target']}."
         if not values.get("name"):

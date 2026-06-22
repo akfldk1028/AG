@@ -144,6 +144,13 @@ class WebSocketManager:
                         # Capture final result if it's a TeamResult
                         elif isinstance(message, TeamResult):
                             final_result = message.model_dump()
+                            # DEBUG: Log message structure
+                            logger.info(f"[DEBUG] TeamResult captured. Messages count: {len(final_result.get('task_result', {}).get('messages', []))}")
+                            if final_result.get('task_result', {}).get('messages'):
+                                first_msg = final_result['task_result']['messages'][0]
+                                logger.info(f"[DEBUG] First message keys: {list(first_msg.keys())}")
+                                logger.info(f"[DEBUG] First message has type: {'type' in first_msg}")
+                                logger.info(f"[DEBUG] First message has content: {'content' in first_msg}")
                 if not cancellation_token.is_cancelled() and run_id not in self._closed_connections:
                     if final_result:
                         await self._update_run(run_id, RunStatus.COMPLETE, team_result=final_result)

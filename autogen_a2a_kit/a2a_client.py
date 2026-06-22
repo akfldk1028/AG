@@ -1,73 +1,110 @@
 # -*- coding: utf-8 -*-
 """
-A2A Client - 어떤 A2A 서버든 호출 가능
+A2A Client — official a2a-sdk v1.0 based.
+
+Provides both async (call_a2a_async) and sync (call_a2a) interfaces.
+Backwards-compatible: create_a2a_tool and check_server still work.
 """
 
-import requests
-import uuid
-import json
+import asyncio
+import logging
 from typing import Callable
 
-def call_a2a(query: str, url: str = "http://localhost:8001/", timeout: int = 30) -> str:
-    """
-    A2A 서버에 메시지 전송
+from a2a.client import (
+    A2ACardResolver,
+    ClientConfig,
+    ClientFactory,
+    create_text_message_object,
+)
+from a2a.types import (
+    Role,
+    SendMessageRequest,
+)
+
+logger = logging.getLogger(__name__)
+
+
+async def call_a2a_async(
+    query: str,
+    url: str = "http://localhost:8011/a2a",
+    timeout: int = 30,
+) -> str:
+    """Send a message to an A2A server and return the response text.
 
     Args:
-        query: 질문/요청
-        url: A2A 서버 URL
-        timeout: 타임아웃 (초)
+        query: The question/request to send.
+        url: Base URL of the A2A server (must serve agent-card and JSON-RPC).
+        timeout: Request timeout in seconds.
 
     Returns:
-        서버 응답 텍스트
+        Agent's response text, or an error string.
     """
-    message_id = str(uuid.uuid4())
-
-    payload = {
-        "jsonrpc": "2.0",
-        "method": "message/send",
-        "id": message_id,
-        "params": {
-            "message": {
-                "messageId": message_id,
-                "role": "user",
-                "parts": [{"kind": "text", "text": query}]
-            }
-        }
-    }
-
     try:
-        resp = requests.post(url, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        result = resp.json()
+        # Resolve agent card
+        resolver = A2ACardResolver(url)
+        card = await resolver.get_agent_card()
 
-        # 응답에서 텍스트 추출
-        if "result" in result:
-            for artifact in result["result"].get("artifacts", []):
-                for part in artifact.get("parts", []):
-                    if part.get("kind") == "text":
-                        return part.get("text", "")
+        # Create client
+        config = ClientConfig()
+        factory = ClientFactory(config=config)
+        client = factory.create(card)
 
-        return json.dumps(result, ensure_ascii=False)
+        # Build message
+        user_msg = create_text_message_object(role=Role.ROLE_USER, content=query)
+        request = SendMessageRequest(message=user_msg)
 
-    except requests.exceptions.ConnectionError:
-        return f"[Error] Cannot connect to {url}"
-    except requests.exceptions.Timeout:
-        return f"[Error] Timeout after {timeout}s"
+        # Send and collect response
+        parts_text = []
+        async for stream_resp, task in client.send_message(request):
+            # Extract text from streaming response parts
+            if stream_resp and stream_resp.HasField("message"):
+                for part in stream_resp.message.parts:
+                    if part.text:
+                        parts_text.append(part.text)
+            if task and task.artifacts:
+                for artifact in task.artifacts:
+                    for part in artifact.parts:
+                        if part.text:
+                            parts_text.append(part.text)
+
+        await client.close()
+        return "\n".join(parts_text) if parts_text else "(empty response)"
+
     except Exception as e:
-        return f"[Error] {str(e)}"
+        logger.error("A2A call failed: %s", e)
+        return f"[Error] {e}"
 
 
-def create_a2a_tool(url: str = "http://localhost:8001/", name: str = "call_remote_agent") -> Callable:
+def call_a2a(
+    query: str,
+    url: str = "http://localhost:8011/a2a",
+    timeout: int = 30,
+) -> str:
+    """Synchronous wrapper around call_a2a_async.
+
+    Works in both sync and async contexts.
     """
-    AutoGen용 A2A 도구 함수 생성
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
 
-    Args:
-        url: A2A 서버 URL
-        name: 도구 이름
+    if loop and loop.is_running():
+        # Already inside an event loop — run in a new thread
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(
+                asyncio.run, call_a2a_async(query, url, timeout)
+            ).result(timeout=timeout + 5)
+    else:
+        return asyncio.run(call_a2a_async(query, url, timeout))
 
-    Returns:
-        AutoGen에서 사용할 수 있는 함수
-    """
+
+def create_a2a_tool(
+    url: str = "http://localhost:8011/a2a",
+    name: str = "call_remote_agent",
+) -> Callable:
+    """Create an AutoGen-compatible tool function for A2A calls."""
     def tool_func(query: str) -> str:
         """원격 A2A 에이전트에게 질문합니다."""
         print(f"    [A2A] -> {url}")
@@ -77,25 +114,26 @@ def create_a2a_tool(url: str = "http://localhost:8001/", name: str = "call_remot
 
     tool_func.__name__ = name
     tool_func.__doc__ = f"A2A 프로토콜로 {url}의 원격 에이전트를 호출합니다."
-
     return tool_func
 
 
-def check_server(url: str = "http://localhost:8001/") -> dict:
-    """
-    A2A 서버 상태 확인
-
-    Returns:
-        {"available": bool, "name": str, "description": str}
-    """
+async def check_server_async(url: str = "http://localhost:8011/a2a") -> dict:
+    """Check if an A2A server is available by resolving its agent card."""
     try:
-        check_url = url.rstrip('/') + "/.well-known/agent.json"
-        resp = requests.get(check_url, timeout=5)
-        info = resp.json()
+        resolver = A2ACardResolver(url)
+        card = await resolver.get_agent_card()
         return {
             "available": True,
-            "name": info.get("name", "Unknown"),
-            "description": info.get("description", "")
+            "name": card.name,
+            "description": card.description,
         }
+    except Exception:
+        return {"available": False, "name": None, "description": None}
+
+
+def check_server(url: str = "http://localhost:8011/a2a") -> dict:
+    """Synchronous wrapper around check_server_async."""
+    try:
+        return asyncio.run(check_server_async(url))
     except Exception:
         return {"available": False, "name": None, "description": None}

@@ -29,6 +29,7 @@ import sys
 # FastAPI (REST API 엔드포인트)
 try:
     from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
     import uvicorn
     FASTAPI_AVAILABLE = True
@@ -410,6 +411,15 @@ class SharedMemoryServer:
 def create_fastapi_app(memory: SharedMemoryServer) -> FastAPI:
     """FastAPI 앱 생성"""
     app = FastAPI(title="AG-CLI SharedMemory")
+
+    # CORS 설정 (Auto-Claude UI 브라우저 모드 지원)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # 개발용: 모든 origin 허용
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # === Pydantic Models ===
     class StoreDecisionRequest(BaseModel):

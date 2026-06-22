@@ -11,6 +11,27 @@
 | `teammanager.diff` | 팀 매니저 A2A 지원 | teammanager.py |
 | `frontend_patterns.diff` | 프론트엔드 패턴 시스템 | patterns/, team-runtime/ |
 
+### 수동 패치 (코드 직접 수정)
+
+| 대상 파일 | 수정 내용 | 적용 필요 |
+|-----------|----------|-----------|
+| `_handoff.py` | `isinstance(values, str)` guard 추가 | 22_AG + 25_ACE 둘 다! |
+| `model_factory.py` | function_calling:True, Selector prompt 감지 | 25_ACE만 |
+| `sdk/client.py` | [TOOL EXECUTED] 마커 + ToolResultBlock | 25_ACE만 |
+
+#### _handoff.py 패치 상세
+
+Swarm 팀에서 `handoffs` 값이 문자열일 때 크래시 방지:
+
+```python
+# 파일: autogen_agentchat/base/_handoff.py
+# 수정: __init_subclass__ 또는 validator에서
+if isinstance(values, str):
+    values = [values]
+```
+
+이 패치는 **22_AG와 25_ACE 양쪽 모두**에 적용해야 합니다.
+
 ## 패치 생성 방법
 
 ```bash

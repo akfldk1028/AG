@@ -111,13 +111,13 @@ category: build
 description: "React/Next.js 프론트엔드 빌드"
 triggers:
   - "프론트 빌드"
-  - "frontend build"
+  - "AG-Frontend build"
   - "npm run build"
 
 # Layer 2: 실행 정보 (활성화 시 로드)
 execution:
   type: direct  # direct | claude_cli | hybrid
-  working_dir: "frontend/"
+  working_dir: "AG-Frontend/"
   commands:
     - "npm install"
     - "npm run build"
@@ -130,7 +130,7 @@ advanced:
     - command: "node --version"
       expect: "v18"
   post_check:
-    - path: "frontend/dist/index.html"
+    - path: "AG-Frontend/dist/index.html"
       exists: true
   on_failure:
     notify: true

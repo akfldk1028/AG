@@ -2,7 +2,7 @@
  * AG_Cohub Pattern Types
  *
  * Type definitions for the modular pattern system.
- * These types bridge AG_Cohub JSON patterns with the AutoGen Studio frontend.
+ * These types bridge AG_Cohub JSON patterns with the AutoGen Studio AG-Frontend.
  */
 
 // ============================================

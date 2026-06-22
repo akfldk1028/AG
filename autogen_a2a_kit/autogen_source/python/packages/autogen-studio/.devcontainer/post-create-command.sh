@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Create the node_modules directory in the frontend folder if it doesn't exist
+# Create the node_modules directory in the AG-Frontend folder if it doesn't exist
 # This ensures the directory exists before mounting
 mkdir -p frontend/node_modules
 

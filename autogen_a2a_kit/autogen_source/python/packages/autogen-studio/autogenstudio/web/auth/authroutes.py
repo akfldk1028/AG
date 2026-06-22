@@ -31,7 +31,7 @@ def get_current_user(request: Request) -> User:
 
 @router.get("/login-url")
 async def get_login_url(auth_manager: AuthManager = Depends(get_auth_manager)):
-    """Get the URL for the frontend to redirect to for login."""
+    """Get the URL for the AG-Frontend to redirect to for login."""
     try:
         login_url = await auth_manager.provider.get_login_url()
         return {"login_url": login_url}
@@ -145,7 +145,7 @@ async def oauth_callback(
 @router.post("/callback-handler")
 async def handle_callback(request: Request, auth_manager: AuthManager = Depends(get_auth_manager)):
     """
-    Handle authentication code/token from frontend.This endpoint is used when the frontend handles the OAuth flow and
+    Handle authentication code/token from AG-Frontend.This endpoint is used when the AG-Frontend handles the OAuth flow and
     needs to exchange the code for a token.
     """
     try:

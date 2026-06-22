@@ -84,10 +84,10 @@ You have two options for installing from source: manually or using a dev contain
    ```bash
    npm install -g gatsby-cli
    npm install --global yarn
-   cd frontend
+   cd AG-Frontend
    yarn install
    yarn build
-   # Windows users may need alternative commands to build the frontend:
+   # Windows users may need alternative commands to build the AG-Frontend:
    gatsby clean && rmdir /s /q ..\\autogenstudio\\web\\ui 2>nul & (set \"PREFIX_PATH_VALUE=\" || ver>nul) && gatsby build --prefix-paths && xcopy /E /I /Y public ..\\autogenstudio\\web\\ui
    ```
 
@@ -99,7 +99,7 @@ You have two options for installing from source: manually or using a dev contain
 4. Build the UI:
 
    ```bash
-   cd frontend
+   cd AG-Frontend
    yarn build
    ```
 
